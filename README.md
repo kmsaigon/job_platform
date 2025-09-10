@@ -1,2 +1,2 @@
-# jobsearchplatform
-CS2340 G6
+# Job Search Platform
+CS2340 Group 6 frrrr
