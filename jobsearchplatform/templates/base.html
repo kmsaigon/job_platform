@@ -32,6 +32,7 @@
             id="navbarNavAltMarkup">
          <div class="navbar-nav ms-auto navbar-ml">
            <a class="nav-link" href="{% url 'home.about' %}">About</a>
+           <a class="nav-link" href="{% url 'jobs:public_list' %}">Jobs</a>
            {% if user.is_authenticated %}
              <a class="nav-link" href="{% url 'jobs:my_list' %}">My Jobs</a>
              <a class="nav-link" href="{% url 'accounts:logout' %}">Logout ({{ user.username }})</a>

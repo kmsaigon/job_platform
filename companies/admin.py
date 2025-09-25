@@ -20,5 +20,3 @@ class OfficeLocationAdmin(admin.ModelAdmin):
     list_display = ('company', 'address', 'latitude', 'longitude')
     list_filter = ('company',)
     search_fields = ('address',)
-
-
