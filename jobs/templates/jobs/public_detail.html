@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <h2>{{ job.title }}</h2>
+    <p class="text-muted">{{ job.company.name }} • {{ job.get_work_mode_display }} • {{ job.get_employment_type_display }}</p>
+    {% if job.salary_min or job.salary_max %}
+      <p><b>Salary:</b>
+        {% if job.salary_min and job.salary_max %}
+          ${{ job.salary_min }}–${{ job.salary_max }} {{ job.currency }}
+        {% elif job.salary_min %}
+          From ${{ job.salary_min }} {{ job.currency }}
+        {% elif job.salary_max %}
+          Up to ${{ job.salary_max }} {{ job.currency }}
+        {% endif %}
+      </p>
+    {% endif %}
+    <hr />
+    <p style="white-space: pre-line">{{ job.description }}</p>
+  </div>
+</div>
+{% endblock content %}
+
+
