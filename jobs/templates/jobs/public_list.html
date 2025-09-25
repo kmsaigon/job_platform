@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <h2>Jobs</h2>
+    <div class="list-group">
+      {% for job in jobs %}
+        <a class="list-group-item list-group-item-action" href="{% url 'jobs:public_detail' job.pk job.slug %}">
+          <div class="d-flex w-100 justify-content-between">
+            <h5 class="mb-1">{{ job.title }}</h5>
+            <small>{{ job.company.name }}</small>
+          </div>
+          <small>{{ job.get_work_mode_display }} • {{ job.get_employment_type_display }}</small>
+        </a>
+      {% empty %}
+        <div class="text-muted">No jobs found.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+

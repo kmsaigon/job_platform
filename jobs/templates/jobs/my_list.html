@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2>My Jobs</h2>
+      <a class="btn btn-primary" href="{% url 'jobs:create' %}">Create job</a>
+    </div>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Status</th>
+          <th>Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+          <tr>
+            <td>{{ job.title }}</td>
+            <td>{{ job.company.name }}</td>
+            <td><span class="badge bg-secondary">{{ job.get_status_display }}</span></td>
+            <td>{{ job.updated_at }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'jobs:edit' job.pk %}">Edit</a>
+              {% if job.status == 'published' %}
+                <form method="post" action="{% url 'jobs:unpublish' job.pk %}" style="display:inline">{% csrf_token %}
+                  <button class="btn btn-sm btn-outline-warning" type="submit">Unpublish</button>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'jobs:publish' job.pk %}" style="display:inline">{% csrf_token %}
+                  <button class="btn btn-sm btn-outline-success" type="submit">Publish</button>
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'jobs:close' job.pk %}" style="display:inline">{% csrf_token %}
+                <button class="btn btn-sm btn-outline-danger" type="submit">Close</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-center">No jobs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock content %}
+
+
