@@ -15,6 +15,10 @@ def is_admin(user):
     return user.is_superuser or user.groups.filter(name='admin').exists()
 
 
+def is_recruiter(user):
+    return user.groups.filter(name='recruiter').exists()
+
+
 class JobPublicListView(ListView):
     model = Job
     template_name = 'jobs/public_list.html'
@@ -45,7 +49,12 @@ class OwnerRequiredMixin(UserPassesTestMixin):
         return obj.posted_by_id == self.request.user.id or is_admin(self.request.user)
 
 
-class JobMyListView(LoginRequiredMixin, ListView):
+class RecruiterRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return is_admin(self.request.user) or is_recruiter(self.request.user)
+
+
+class JobMyListView(LoginRequiredMixin, RecruiterRequiredMixin, ListView):
     model = Job
     template_name = 'jobs/my_list.html'
     context_object_name = 'jobs'
@@ -55,7 +64,7 @@ class JobMyListView(LoginRequiredMixin, ListView):
             .order_by('-updated_at')
 
 
-class JobCreateView(LoginRequiredMixin, CreateView):
+class JobCreateView(LoginRequiredMixin, RecruiterRequiredMixin, CreateView):
     model = Job
     form_class = JobForm
     template_name = 'jobs/job_form.html'
@@ -80,6 +89,7 @@ class JobUpdateView(LoginRequiredMixin, OwnerRequiredMixin, UpdateView):
 
 
 @login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
 def job_publish(request, pk):
     job = get_object_or_404(Job, pk=pk)
     if job.posted_by_id != request.user.id and not is_admin(request.user):
@@ -96,6 +106,7 @@ def job_publish(request, pk):
 
 
 @login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
 def job_unpublish(request, pk):
     job = get_object_or_404(Job, pk=pk)
     if job.posted_by_id != request.user.id and not is_admin(request.user):
@@ -111,6 +122,7 @@ def job_unpublish(request, pk):
 
 
 @login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
 def job_close(request, pk):
     job = get_object_or_404(Job, pk=pk)
     if job.posted_by_id != request.user.id and not is_admin(request.user):
