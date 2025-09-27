@@ -2,9 +2,11 @@ from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 from companies.models import Company, OfficeLocation
+from .manager import JobManager
 
 
 class Job(models.Model):
+    objects = JobManager()
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
         PUBLISHED = 'published', 'Published'
