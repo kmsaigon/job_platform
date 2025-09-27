@@ -1,16 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import HttpResponseForbidden, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from django.shortcuts import render
 from django.db.models import Q
 from django.core.paginator import Paginator
-from .forms import JobForm, JobSearchForm
-from .models import Job, JobStatusHistory
+from .forms import JobForm, JobSearchForm, ApplicationForm
+from .models import Job, JobStatusHistory, Application
 
 def is_admin(user):
     return user.is_superuser or user.groups.filter(name='admin').exists()
@@ -18,6 +17,11 @@ def is_admin(user):
 
 def is_recruiter(user):
     return user.groups.filter(name='recruiter').exists()
+
+
+def is_job_seeker(user):
+    # Job seeker is any authenticated user who is NOT a recruiter
+    return user.is_authenticated and not is_recruiter(user) and not is_admin(user)
 
 
 class JobPublicListView(ListView):
@@ -40,6 +44,21 @@ class JobPublicDetailView(DetailView):
         if self.request.user.is_authenticated and (is_admin(self.request.user)):
             return qs
         return qs.filter(status=Job.Status.PUBLISHED)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Check if user has already applied
+        if self.request.user.is_authenticated:
+            context['has_applied'] = Application.objects.filter(
+                job=self.object,
+                applicant=self.request.user
+            ).exists()
+            if context['has_applied']:
+                context['user_application'] = Application.objects.get(
+                    job=self.object,
+                    applicant=self.request.user
+                )
+        return context
 
 
 class OwnerRequiredMixin(UserPassesTestMixin):
@@ -137,7 +156,6 @@ def job_close(request, pk):
     return redirect('jobs:my_list')
 
 
-
 class JobSearchView(ListView):
     model = Job
     template_name = 'jobs/public_list.html'
@@ -206,6 +224,15 @@ class JobSearchView(ListView):
         context['form'] = form
         context['total_jobs'] = self.get_queryset().count()
         
+        # Get user's applications for showing applied status
+        if self.request.user.is_authenticated:
+            user_applications = Application.objects.filter(
+                applicant=self.request.user
+            ).values_list('job_id', flat=True)
+            context['user_applications'] = list(user_applications)
+        else:
+            context['user_applications'] = []
+        
         # Active filters for display
         if form.is_valid():
             active_filters = {}
@@ -220,3 +247,55 @@ class JobSearchView(ListView):
             context['active_filters'] = active_filters
         
         return context
+
+
+# Application Views
+@login_required
+def apply_to_job(request, pk):
+    """Handle job application submission"""
+    job = get_object_or_404(Job, pk=pk, status=Job.Status.PUBLISHED)
+    
+    # Prevent recruiters from applying
+    if is_recruiter(request.user) or is_admin(request.user):
+        messages.error(request, 'Recruiters cannot apply to jobs.')
+        return redirect('jobs:public_detail', pk=job.pk, slug=job.slug)
+    
+    # Check if already applied
+    if Application.objects.filter(job=job, applicant=request.user).exists():
+        messages.info(request, 'You have already applied to this job.')
+        return redirect('jobs:public_detail', pk=job.pk, slug=job.slug)
+    
+    if request.method == 'POST':
+        form = ApplicationForm(request.POST)
+        if form.is_valid():
+            application = form.save(commit=False)
+            application.job = job
+            application.applicant = request.user
+            application.save()
+            messages.success(request, 'Application submitted successfully!')
+            return redirect('jobs:public_detail', pk=job.pk, slug=job.slug)
+    else:
+        form = ApplicationForm()
+    
+    context = {
+        'job': job,
+        'form': form
+    }
+    return render(request, 'jobs/apply.html', context)
+
+
+@login_required
+def my_applications(request):
+    """View all applications by the current user"""
+    if is_recruiter(request.user) or is_admin(request.user):
+        messages.error(request, 'This page is for job seekers only.')
+        return redirect('jobs:public_list')
+    
+    applications = Application.objects.filter(
+        applicant=request.user
+    ).select_related('job', 'job__company').order_by('-applied_at')
+    
+    context = {
+        'applications': applications
+    }
+    return render(request, 'jobs/my_applications.html', context)

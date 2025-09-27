@@ -1,5 +1,5 @@
 from django import forms
-from .models import Job
+from .models import Job, Application  # ADD Application here
 
 
 class JobForm(forms.ModelForm):
@@ -60,13 +60,30 @@ class JobSearchForm(forms.Form):
     )
     
     work_mode = forms.ChoiceField(
-        choices=[('', 'Any')] + list(Job.WorkMode.choices),  # Use actual model choices
+        choices=[('', 'Any')] + list(Job.WorkMode.choices),
         required=False,
         widget=forms.Select(attrs={'class': 'form-select filter-select'})
     )
     
     employment_type = forms.MultipleChoiceField(
-        choices=Job.EmploymentType.choices,  # Use actual model choices
+        choices=Job.EmploymentType.choices,
         required=False,
         widget=forms.CheckboxSelectMultiple()
     )
+
+
+class ApplicationForm(forms.ModelForm):
+    class Meta:
+        model = Application
+        fields = ['application_note']
+        widgets = {
+            'application_note': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 5,
+                'placeholder': 'Tell the employer why you are a great fit for this role. Highlight relevant skills, experience, and your enthusiasm for the position.',
+                'required': True
+            })
+        }
+        labels = {
+            'application_note': 'Why are you a good fit for this role?'
+        }

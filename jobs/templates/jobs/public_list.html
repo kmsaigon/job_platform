@@ -264,11 +264,28 @@
                             </div>
                             {% endif %}
                         </div>
-                        <div class="posted-time">
-                            {% if job.published_at %}
-                                {{ job.published_at|timesince }} ago
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="posted-time">
+                                {% if job.published_at %}
+                                    {{ job.published_at|timesince }} ago
+                                {% else %}
+                                    {{ job.created_at|timesince }} ago
+                                {% endif %}
+                            </div>
+                            
+                            <!-- APPLY BUTTON -->
+                            {% if user.is_authenticated %}
+                                {% if job.pk in user_applications %}
+                                    <span class="badge bg-success">Applied</span>
+                                {% else %}
+                                    <a href="{% url 'jobs:apply' job.pk %}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-paper-plane me-1"></i>Apply
+                                    </a>
+                                {% endif %}
                             {% else %}
-                                {{ job.created_at|timesince }} ago
+                                <a href="{% url 'login' %}?next={% url 'jobs:public_list' %}" class="btn btn-outline-primary btn-sm">
+                                    Login to Apply
+                                </a>
                             {% endif %}
                         </div>
                     </div>
