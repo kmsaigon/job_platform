@@ -31,8 +31,8 @@
             id="navbarNavAltMarkup">
          <div class="navbar-nav ms-auto navbar-ml">
            <a class="nav-link" href="{% url 'home.about' %}">About</a>
-           <a class="nav-link" href="{% url 'jobs:public_list' %}">Jobs</a>
            {% if user.is_authenticated %}
+             <a class="nav-link" href="{% url 'jobs:public_list' %}">Jobs</a>
              {% load account_tags %}
              {% if user|has_group:'recruiter' %}
                <a class="nav-link" href="{% url 'jobs:my_list' %}">My Jobs</a>
