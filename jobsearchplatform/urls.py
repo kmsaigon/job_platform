@@ -25,4 +25,5 @@ urlpatterns = [
     path('companies/', include('companies.urls')),
     path('jobs/', include('jobs.urls')),
     path('recruiter/jobs', RedirectView.as_view(url='/jobs/recruiter/', permanent=False)),
+    path('profiles/', include('profiles.urls')),
 ]

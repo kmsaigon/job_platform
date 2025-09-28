@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow">
+        <div class="card-body">
+          <h2>{{ template_data.title }}</h2>
+          <hr />
+          <form method="post">
+            {% csrf_token %}
+            
+            <!-- Basic Information -->
+            <div class="mb-4">
+              <h5 class="text-primary">Basic Information</h5>
+              <div class="mb-3">
+                <label for="{{ template_data.form.name.id_for_label }}" class="form-label">Name *</label>
+                {{ template_data.form.name }}
+                {% if template_data.form.name.errors %}
+                  <div class="text-danger">{{ template_data.form.name.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.headline.id_for_label }}" class="form-label">Headline</label>
+                {{ template_data.form.headline }}
+                {% if template_data.form.headline.errors %}
+                  <div class="text-danger">{{ template_data.form.headline.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Profile Content -->
+            <div class="mb-4">
+              <h5 class="text-primary">Profile Content</h5>
+              <div class="mb-3">
+                <label for="{{ template_data.form.skills.id_for_label }}" class="form-label">Skills</label>
+                {{ template_data.form.skills }}
+                {% if template_data.form.skills.errors %}
+                  <div class="text-danger">{{ template_data.form.skills.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.education.id_for_label }}" class="form-label">Education</label>
+                {{ template_data.form.education }}
+                {% if template_data.form.education.errors %}
+                  <div class="text-danger">{{ template_data.form.education.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.experience.id_for_label }}" class="form-label">Experience</label>
+                {{ template_data.form.experience }}
+                {% if template_data.form.experience.errors %}
+                  <div class="text-danger">{{ template_data.form.experience.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.links.id_for_label }}" class="form-label">Links</label>
+                {{ template_data.form.links }}
+                <div class="form-text">Enter any links (one per line)</div>
+                {% if template_data.form.links.errors %}
+                  <div class="text-danger">{{ template_data.form.links.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Privacy Settings -->
+            <div class="mb-4">
+              <h5 class="text-primary">Privacy Settings</h5>
+              <p class="text-muted">Control what recruiters can see in your profile</p>
+              
+              <div class="mb-3">
+                <div class="form-check">
+                  {{ template_data.form.is_public }}
+                  <label class="form-check-label" for="{{ template_data.form.is_public.id_for_label }}">
+                    Make my profile visible to recruiters
+                  </label>
+                </div>
+                {% if template_data.form.is_public.errors %}
+                  <div class="text-danger">{{ template_data.form.is_public.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check">
+                  {{ template_data.form.show_contact_info }}
+                  <label class="form-check-label" for="{{ template_data.form.show_contact_info.id_for_label }}">
+                    Show contact information
+                  </label>
+                </div>
+                {% if template_data.form.show_contact_info.errors %}
+                  <div class="text-danger">{{ template_data.form.show_contact_info.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check">
+                  {{ template_data.form.show_experience }}
+                  <label class="form-check-label" for="{{ template_data.form.show_experience.id_for_label }}">
+                    Show work experience
+                  </label>
+                </div>
+                {% if template_data.form.show_experience.errors %}
+                  <div class="text-danger">{{ template_data.form.show_experience.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check">
+                  {{ template_data.form.show_education }}
+                  <label class="form-check-label" for="{{ template_data.form.show_education.id_for_label }}">
+                    Show education
+                  </label>
+                </div>
+                {% if template_data.form.show_education.errors %}
+                  <div class="text-danger">{{ template_data.form.show_education.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check">
+                  {{ template_data.form.show_skills }}
+                  <label class="form-check-label" for="{{ template_data.form.show_skills.id_for_label }}">
+                    Show skills
+                  </label>
+                </div>
+                {% if template_data.form.show_skills.errors %}
+                  <div class="text-danger">{{ template_data.form.show_skills.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check">
+                  {{ template_data.form.show_links }}
+                  <label class="form-check-label" for="{{ template_data.form.show_links.id_for_label }}">
+                    Show links
+                  </label>
+                </div>
+                {% if template_data.form.show_links.errors %}
+                  <div class="text-danger">{{ template_data.form.show_links.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">Update Profile</button>
+              <a href="{% url 'profiles:profiles.detail' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

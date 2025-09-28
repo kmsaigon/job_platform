@@ -1,23 +1,352 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load job_extras %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static '/jobs/css/public_list.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="p-3">
-  <div class="container">
-    <h2>Jobs</h2>
-    <div class="list-group">
-      {% for job in jobs %}
-        <a class="list-group-item list-group-item-action" href="{% url 'jobs:public_detail' job.pk job.slug %}">
-          <div class="d-flex w-100 justify-content-between">
-            <h5 class="mb-1">{{ job.title }}</h5>
-            <small>{{ job.company.name }}</small>
-          </div>
-          <small>{{ job.get_work_mode_display }} • {{ job.get_employment_type_display }}</small>
-        </a>
-      {% empty %}
-        <div class="text-muted">No jobs found.</div>
-      {% endfor %}
+<div class="modern-job-search">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">Let's Search!</h1>
+                <p class="hero-subtitle">Discover opportunities that match your skills and aspirations</p>
+            </div>
+        </div>
     </div>
-  </div>
+    
+    
+    <!-- Search Filters -->
+    <div class="search-section">
+        <div class="container">
+            <!-- FIXED: Single form pointing to correct URL -->
+            <form method="GET" action="{% url 'jobs:public_list' %}" id="searchForm">
+                <div class="search-cards-container">
+                    <!-- Primary Search Card -->
+                    <div class="search-card primary-search">
+                        <div class="search-card-body">
+                            <div class="row g-3">
+                                <div class="col-lg-5">
+                                    <div class="search-input-group">
+                                        <i class="fas fa-search input-icon"></i>
+                                        <input type="text" name="title" class="form-control search-input" 
+                                               id="id_title" placeholder="Job title, keywords, or company" 
+                                               value="{{ form.title.value|default:'' }}">
+                                    </div>
+                                </div>
+                                <div class="col-lg-4">
+                                    <div class="search-input-group">
+                                        <i class="fas fa-map-marker-alt input-icon"></i>
+                                        <input type="text" name="location" class="form-control search-input" 
+                                               id="id_location" placeholder="City, state, or remote" 
+                                               value="{{ form.location.value|default:'' }}">
+                                    </div>
+                                </div>
+                                <div class="col-lg-3">
+                                    <button type="submit" class="btn btn-primary btn-search w-100">
+                                        <i class="fas fa-search me-2"></i>Search Jobs
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filter Cards Row -->
+                    <div class="filter-cards-row">
+                        <!-- REMOVED Skills Filter (not in your model) -->
+                        
+                        <!-- Salary Filter -->
+                        <div class="filter-card">
+                            <div class="filter-card-header">
+                                <i class="fas fa-dollar-sign filter-icon"></i>
+                                <span class="filter-title">Salary Range</span>
+                            </div>
+                            <div class="filter-card-body">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="number" name="salary_min" class="form-control filter-input" 
+                                               placeholder="Min" value="{{ form.salary_min.value|default:'' }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number" name="salary_max" class="form-control filter-input" 
+                                               placeholder="Max" value="{{ form.salary_max.value|default:'' }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Work Type Filter -->
+                        <div class="filter-card">
+                            <div class="filter-card-header">
+                                <i class="fas fa-laptop-house filter-icon"></i>
+                                <span class="filter-title">Work Style</span>
+                            </div>
+                            <div class="filter-card-body">
+                                <select name="work_mode" class="form-select filter-select">
+                                    <option value="">Any</option>
+                                    <option value="remote" {% if form.work_mode.value == 'remote' %}selected{% endif %}>
+                                        Remote
+                                    </option>
+                                    <option value="hybrid" {% if form.work_mode.value == 'hybrid' %}selected{% endif %}>
+                                        Hybrid
+                                    </option>
+                                    <option value="on_site" {% if form.work_mode.value == 'on_site' %}selected{% endif %}>
+                                        On-site
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Job Type Filter -->
+                        <div class="filter-card">
+                            <div class="filter-card-header">
+                                <i class="fas fa-briefcase filter-icon"></i>
+                                <span class="filter-title">Job Type</span>
+                            </div>
+                            <div class="filter-card-body">
+                                <div class="job-type-options">
+                                    <label class="job-type-option">
+                                        <input type="checkbox" name="employment_type" value="full_time" 
+                                               {% if 'full_time' in form.employment_type.value %}checked{% endif %}>
+                                        <span class="job-type-label">Full-time</span>
+                                    </label>
+                                    <label class="job-type-option">
+                                        <input type="checkbox" name="employment_type" value="part_time" 
+                                               {% if 'part_time' in form.employment_type.value %}checked{% endif %}>
+                                        <span class="job-type-label">Part-time</span>
+                                    </label>
+                                    <label class="job-type-option">
+                                        <input type="checkbox" name="employment_type" value="contract" 
+                                               {% if 'contract' in form.employment_type.value %}checked{% endif %}>
+                                        <span class="job-type-label">Contract</span>
+                                    </label>
+                                    <label class="job-type-option">
+                                        <input type="checkbox" name="employment_type" value="internship" 
+                                               {% if 'internship' in form.employment_type.value %}checked{% endif %}>
+                                        <span class="job-type-label">Internship</span>
+                                    </label>
+                                </div>
+                                <!-- FIXED: Changed to visa_required -->
+                                <label class="visa-option mt-2">
+                                    <input type="checkbox" name="visa_required" value="true" 
+                                           {% if form.visa_required.value %}checked{% endif %}>
+                                    <span class="visa-label">Visa Required</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Actions Filter -->
+                        <div class="filter-card actions-card">
+                            <div class="filter-card-body">
+                                <div class="filter-actions">
+                                    <!-- FIXED: Remove nested form -->
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-filter me-1"></i>Apply Filters
+                                    </button>
+                                    <a href="{% url 'jobs:public_list' %}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-times me-1"></i>Clear
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Active Filters -->
+    {% if active_filters %}
+    <div class="container">
+        <div class="active-filters">
+            <span class="active-filters-label">Active filters:</span>
+            {% for filter_name, filter_value in active_filters.items %}
+                <span class="filter-tag">
+                    {{ filter_name|title }}: {{ filter_value }}
+                    <button type="button" class="filter-tag-close">&times;</button>
+                </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Results Section -->
+    <div class="results-section">
+        <div class="container">
+            <!-- Results Header -->
+            <div class="results-header">
+                <div class="results-info">
+                    <h2 class="results-title">
+                        {% if total_jobs %}
+                            {{ total_jobs }} job{{ total_jobs|pluralize }} found
+                        {% else %}
+                            Browse Jobs
+                        {% endif %}
+                    </h2>
+                    {% if total_jobs %}
+                    <p class="results-subtitle">Showing the best matches for your search</p>
+                    {% endif %}
+                </div>
+                <div class="results-controls">
+                    <div class="sort-dropdown">
+                        <select class="form-select sort-select">
+                            <option value="newest">Newest first</option>
+                            <option value="salary">Highest salary</option>
+                            <option value="relevance">Most relevant</option>
+                            <option value="company">Company A-Z</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Job Results -->
+            <div class="jobs-grid">
+                {% for job in jobs %}
+                <article class="job-card modern">
+                    <div class="job-card-header">
+                        <div class="company-logo">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="job-meta">
+                            <div class="job-badges">
+                                <span class="badge work-badge work-{{ job.work_mode }}">
+                                    {{ job.get_work_mode_display|title }}
+                                </span>
+                                <!-- FIXED: Changed to visa_required -->
+                                {% if job.visa_required %}
+                                <span class="badge visa-badge">Visa Required</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="job-card-body">
+                        <h3 class="job-title">
+                            <a href="{% url 'jobs:public_detail' job.pk job.slug %}">{{ job.title }}</a>
+                        </h3>
+                        <div class="company-info">
+                            <span class="company-name">{{ job.company.name }}</span>
+                            <span class="job-location">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <!-- FIXED: Use office_location fields -->
+                                {% if job.office_location %}
+                                    {{ job.office_location.city }}{% if job.office_location.state %}, {{ job.office_location.state }}{% endif %}
+                                {% else %}
+                                    {% if job.work_mode == 'remote' %}Remote{% else %}Not specified{% endif %}
+                                {% endif %}
+                            </span>
+                        </div>
+                        
+                        {% if job.description %}
+                        <p class="job-description">{{ job.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        
+                        <!-- REMOVED Skills section since your model doesn't have skills_required -->
+                    </div>
+                    
+                    <div class="job-card-footer">
+                        <div class="job-details">
+                            <div class="employment-type">
+                                {{ job.get_employment_type_display }}
+                            </div>
+                            {% if job.salary_min or job.salary_max %}
+                            <div class="salary-info">
+                                {% if job.salary_min and job.salary_max %}
+                                    ${{ job.salary_min|floatformat:0 }} - ${{ job.salary_max|floatformat:0 }}
+                                {% elif job.salary_min %}
+                                    ${{ job.salary_min|floatformat:0 }}+
+                                {% elif job.salary_max %}
+                                    Up to ${{ job.salary_max|floatformat:0 }}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="posted-time">
+                                {% if job.published_at %}
+                                    {{ job.published_at|timesince }} ago
+                                {% else %}
+                                    {{ job.created_at|timesince }} ago
+                                {% endif %}
+                            </div>
+                            
+                            <!-- APPLY BUTTON -->
+                            {% if user.is_authenticated %}
+                                {% if job.pk in user_applications %}
+                                    <span class="badge bg-success">Applied</span>
+                                {% else %}
+                                    <a href="{% url 'jobs:apply' job.pk %}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-paper-plane me-1"></i>Apply
+                                    </a>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'accounts:login' %}?next={% url 'jobs:public_list' %}" class="btn btn-outline-primary btn-sm">
+                                    Login to Apply
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+                {% empty %}
+                <div class="no-results">
+                    <div class="no-results-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3 class="no-results-title">No jobs found</h3>
+                    <p class="no-results-text">
+                        {% if request.GET %}
+                            Try adjusting your search criteria or removing some filters
+                        {% else %}
+                            No jobs are currently available
+                        {% endif %}
+                    </p>
+                    {% if request.GET %}
+                    <a href="{% url 'jobs:public_list' %}" class="btn btn-primary">
+                        <i class="fas fa-refresh me-2"></i>Start Fresh
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pagination -->
+            {% if jobs.has_other_pages %}
+            <nav class="pagination-nav" aria-label="Job search pagination">
+                <ul class="pagination modern-pagination">
+                    {% if jobs.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% url_replace page=jobs.previous_page_number %}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in jobs.paginator.page_range %}
+                        {% if jobs.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > jobs.number|add:'-3' and num < jobs.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% url_replace page=num %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if jobs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% url_replace page=jobs.next_page_number %}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock content %}
-
-

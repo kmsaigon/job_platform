@@ -24,10 +24,17 @@ class Department(models.Model):
 class OfficeLocation(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='office_locations')
     address = models.CharField(max_length=512)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    country = models.CharField(max_length=100, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
 
     def __str__(self) -> str:
+        location_parts = [self.city, self.state, self.country]
+        location_str = ', '.join(filter(None, location_parts))
+        if location_str:
+            return f"{self.company.name} - {location_str}"
         return f"{self.company.name} - {self.address}"
 
 
