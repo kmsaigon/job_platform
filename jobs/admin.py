@@ -33,4 +33,4 @@ class ApplicationAdmin(admin.ModelAdmin):
         ('Timestamps', {
             'fields': ('applied_at', 'updated_at')
         }),
-    )
+    ) # yo, gurt
