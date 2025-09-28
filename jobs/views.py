@@ -299,3 +299,21 @@ def my_applications(request):
         'applications': applications
     }
     return render(request, 'jobs/my_applications.html', context)
+
+@login_required
+def withdraw_application(request, application_id):
+    """Allow job seekers to withdraw their application"""
+    application = get_object_or_404(Application, id=application_id)
+
+    if application.applicant != request.user:
+        return HttpResponseForbidden("You cannot withdraw this application.")
+    
+    if application.status not in ['applied', 'review']:
+        messages.error(request, 'You can only withdraw applications that are in "Applied" or "Under Review" status.')
+        return redirect('jobs:my_applications')
+    
+    application.status = Application.Status.WITHDRAWN
+    application.save()
+
+    messages.success(request, f'Your application for "{application.job.title}" has been withdrawn.')
+    return redirect('jobs:my_applications')
