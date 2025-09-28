@@ -10,45 +10,146 @@
         </a>
     </div>
 
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Application Status</h5>
+            <div class="d-flex flex-wrap gap-3">
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-2">Applied</span>
+                    <small>Your application has been submitted.</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-info me-2">Under Review</span>
+                    <small>Employer is reviewing your application.</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-warning me-2">Interview</span>
+                    <small>You've been invited for an interview.</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-success me-2">Offer</span>
+                    <small>You've received a job offer!</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-danger me-2">Rejected</span>
+                    <small>Application was not successful.</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-secondary me-2">Withdrawn</span>
+                    <small>You withdrew your application.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% if applications %}
         <div class="row">
             {% for application in applications %}
-            <div class="col-12 mb-3">
-                <div class="card">
+            <div class="col-12 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                <a href="{% url 'jobs:public_detail' application.job.pk application.job.slug %}" 
+                                   class="text-decoration-none">
+                                    {{ application.job.title }}
+                                </a>
+                            </h5>
+                            <small class="text-muted">{{ application.job.company.name }}</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="mb-1">
+                                {% if application.status == 'applied' %}
+                                    <span class="badge bg-primary">{{ application.get_status_display }}</span>
+                                {% elif application.status == 'review' %}
+                                    <span class="badge bg-info">{{ application.get_status_display }}</span>
+                                {% elif application.status == 'interview' %}
+                                    <span class="badge bg-warning">{{ application.get_status_display }}</span>
+                                {% elif application.status == 'offer' %}
+                                    <span class="badge bg-success">{{ application.get_status_display }}</span>
+                                {% elif application.status == 'rejected' %}
+                                    <span class="badge bg-danger">{{ application.get_status_display }}</span>
+                                {% elif application.status == 'withdrawn' %}
+                                    <span class="badge bg-secondary">{{ application.get_status_display }}</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">Applied {{ application.applied_at|date:"M d, Y" }}</small>
+                        </div>
+                    </div>
+                    
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h5 class="card-title">
-                                    <a href="{% url 'jobs:public_detail' application.job.pk application.job.slug %}" class="text-decoration-none">
-                                        {{ application.job.title }}
-                                    </a>
-                                </h5>
-                                <p class="text-muted mb-2">
-                                    <i class="fas fa-building me-2"></i>{{ application.job.company.name }}
-                                    <span class="mx-2">•</span>
-                                    <i class="fas fa-calendar me-2"></i>Applied {{ application.applied_at|date:"M d, Y" }}
-                                </p>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <strong>Job Details:</strong>
+                                    <div class="mt-1">
+                                        <span class="badge bg-light text-dark me-2">
+                                            <i class="fas fa-briefcase me-1"></i>{{ application.job.get_employment_type_display }}
+                                        </span>
+                                        <span class="badge bg-light text-dark me-2">
+                                            <i class="fas fa-laptop-house me-1"></i>{{ application.job.get_work_mode_display }}
+                                        </span>
+                                        {% if application.job.office_location %}
+                                            <span class="badge bg-light text-dark">
+                                                <i class="fas fa-map-marker-alt me-1"></i>
+                                                {{ application.job.office_location.city }}{% if application.job.office_location.state %}, {{ application.job.office_location.state }}{% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                                 
-                                <div class="mb-2">
-                                    {% if application.status == 'applied' %}
-                                        <span class="badge bg-primary">{{ application.get_status_display }}</span>
-                                    {% elif application.status == 'review' %}
-                                        <span class="badge bg-info">{{ application.get_status_display }}</span>
-                                    {% elif application.status == 'interview' %}
-                                        <span class="badge bg-warning">{{ application.get_status_display }}</span>
-                                    {% elif application.status == 'offer' %}
-                                        <span class="badge bg-success">{{ application.get_status_display }}</span>
-                                    {% elif application.status == 'rejected' %}
-                                        <span class="badge bg-danger">{{ application.get_status_display }}</span>
-                                    {% elif application.status == 'withdrawn' %}
-                                        <span class="badge bg-secondary">{{ application.get_status_display }}</span>
+                                {% if application.application_note %}
+                                <div>
+                                    <strong>Your Application Note:</strong>
+                                    <p class="mt-1 mb-0">{{ application.application_note }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'jobs:public_detail' application.job.pk application.job.slug %}" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye me-1"></i>View Job
+                                    </a>
+                                    {% if application.status == 'applied' or application.status == 'review' %}
+                                        <button class="btn btn-outline-danger btn-sm" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#withdrawModal{{ application.id }}">
+                                            <i class="fas fa-times me-1"></i>Withdraw
+                                        </button>
                                     {% endif %}
                                 </div>
-
-                                <div class="mt-3">
-                                    <strong>Your Application Note:</strong>
-                                    <p class="mb-0 mt-1">{{ application.application_note|truncatewords:50 }}</p>
-                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Timeline -->
+                    <div class="card-footer">
+                        <small class="text-muted">
+                            <strong>Last updated:</strong> {{ application.updated_at|date:"M d, Y g:i A" }}
+                        </small>
+                    </div>
+                </div>
+                
+                <!-- Withdraw Confirmation Modal -->
+                <div class="modal fade" id="withdrawModal{{ application.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Withdraw Application</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Are you sure you want to withdraw your application for <strong>{{ application.job.title }}</strong> at <strong>{{ application.job.company.name }}</strong>?</p>
+                                <p class="text-muted">This action cannot be undone.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <form method="post" action="{% url 'jobs:withdraw_application' application.id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger">Withdraw Application</button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -67,4 +168,17 @@
         </div>
     {% endif %}
 </div>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.badge {
+    font-size: 0.75em;
+}
+</style>
 {% endblock content %}
