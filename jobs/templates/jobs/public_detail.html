@@ -29,6 +29,7 @@
                 {% elif user_application.status == 'review' %}bg-info
                 {% elif user_application.status == 'interview' %}bg-warning
                 {% elif user_application.status == 'offer' %}bg-success
+                {% elif user_application.status == 'closed' %}bg-dark
                 {% elif user_application.status == 'rejected' %}bg-danger
                 {% elif user_application.status == 'withdrawn' %}bg-secondary
                 {% endif %}">
