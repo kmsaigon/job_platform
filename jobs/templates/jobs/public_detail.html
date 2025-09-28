@@ -19,10 +19,28 @@
     <!-- Application Button -->
     {% if user.is_authenticated %}
       {% if has_applied %}
-        <div class="alert alert-success">
-          <i class="fas fa-check-circle"></i> You applied on {{ user_application.applied_at|date:"M d, Y" }}
-          <br>
-          <strong>Status:</strong> {{ user_application.get_status_display }}
+        <div class="alert alert-info">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <i class="fas fa-check-circle me-2"></i> 
+              <strong>Application Status:</strong> 
+              <span class="badge 
+                {% if user_application.status == 'applied' %}bg-primary
+                {% elif user_application.status == 'review' %}bg-info
+                {% elif user_application.status == 'interview' %}bg-warning
+                {% elif user_application.status == 'offer' %}bg-success
+                {% elif user_application.status == 'rejected' %}bg-danger
+                {% elif user_application.status == 'withdrawn' %}bg-secondary
+                {% endif %}">
+                {{ user_application.get_status_display }}
+              </span>
+              <br>
+              <small class="text-muted">Applied on {{ user_application.applied_at|date:"M d, Y" }}</small>
+            </div>
+            <a href="{% url 'jobs:my_applications' %}" class="btn btn-outline-primary btn-sm">
+              View All Applications
+            </a>
+          </div>
         </div>
       {% else %}
         <a href="{% url 'jobs:apply' job.pk %}" class="btn btn-primary btn-lg mb-3">
