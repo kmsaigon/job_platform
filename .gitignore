@@ -1,2 +1,4 @@
 /.cursor/
 /moviesstore-main/
+__pycache__/
+*.pyc
