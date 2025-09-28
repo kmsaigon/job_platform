@@ -18,7 +18,6 @@ class CustomProfileCreationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(CustomProfileCreationForm, self).__init__(*args, **kwargs)
         for fieldname, field in self.fields.items():
-            # remove default help text and add bootstrap class
             field.help_text = None
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = (existing + ' form-control').strip()
