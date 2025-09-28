@@ -83,6 +83,7 @@ class Application(models.Model):
         OFFER = 'offer', 'Offer'
         REJECTED = 'rejected', 'Rejected'
         WITHDRAWN = 'withdrawn', 'Withdrawn'
+        CLOSED = 'closed', 'Closed'
 
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')
     applicant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='applications')

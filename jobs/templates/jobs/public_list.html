@@ -283,7 +283,7 @@
                                     </a>
                                 {% endif %}
                             {% else %}
-                                <a href="{% url 'login' %}?next={% url 'jobs:public_list' %}" class="btn btn-outline-primary btn-sm">
+                                <a href="{% url 'accounts:login' %}?next={% url 'jobs:public_list' %}" class="btn btn-outline-primary btn-sm">
                                     Login to Apply
                                 </a>
                             {% endif %}
