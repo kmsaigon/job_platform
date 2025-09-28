@@ -39,6 +39,11 @@
                <a class="nav-link" href="{% url 'jobs:my_list' %}">My Jobs</a>
               {% elif user|has_group:'job_seeker' %}
                 <a class="nav-link" href="{% url 'jobs:my_applications' %}">My Applications</a>
+                {% if user.profile %}
+                  <a class="nav-link" href="{% url 'profiles:profiles.detail' %}">My Profile</a>
+                {% else %}
+                  <a class="nav-link" href="{% url 'profiles:profiles.create' %}">Create Profile</a>
+                {% endif %}
              {% endif %}
              <a class="nav-link" href="{% url 'accounts:logout' %}">Logout ({{ user.username }})</a>
            {% else %}
