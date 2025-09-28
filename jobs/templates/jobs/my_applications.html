@@ -31,6 +31,10 @@
                     <small>You've received a job offer!</small>
                 </div>
                 <div class="d-flex align-items-center">
+                    <span class="badge bg-dark me-2">Closed</span>
+                    <small>The position is no longer available.</small>
+                </div>
+                <div class="d-flex align-items-center">
                     <span class="badge bg-danger me-2">Rejected</span>
                     <small>Application was not successful.</small>
                 </div>
@@ -67,6 +71,8 @@
                                     <span class="badge bg-warning">{{ application.get_status_display }}</span>
                                 {% elif application.status == 'offer' %}
                                     <span class="badge bg-success">{{ application.get_status_display }}</span>
+                                {% elif application.status == 'closed' %}
+                                    <span class="badge bg-dark">{{ application.get_status_display }}</span>
                                 {% elif application.status == 'rejected' %}
                                     <span class="badge bg-danger">{{ application.get_status_display }}</span>
                                 {% elif application.status == 'withdrawn' %}
