@@ -1,5 +1,5 @@
 from django import forms
-from .models import Job, Application  # ADD Application here
+from .models import Job
 
 
 class JobForm(forms.ModelForm):
@@ -18,72 +18,4 @@ class JobForm(forms.ModelForm):
             self.add_error('salary_min', 'Minimum salary cannot exceed maximum salary.')
         return cleaned
 
-class JobSearchForm(forms.Form):
-    title = forms.CharField(
-        max_length=200,
-        required=False,
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Job title, keywords...',
-            'class': 'form-control'
-        })
-    )
-    
-    location = forms.CharField(
-        max_length=100,
-        required=False,
-        widget=forms.TextInput(attrs={
-            'placeholder': 'City, State, Country...',
-            'class': 'form-control'
-        })
-    )
-    
-    salary_min = forms.DecimalField(  
-        required=False,
-        widget=forms.NumberInput(attrs={
-            'placeholder': 'Min salary',
-            'class': 'form-control',
-            'min': 0
-        })
-    )
-    
-    salary_max = forms.DecimalField( 
-        required=False,
-        widget=forms.NumberInput(attrs={
-            'placeholder': 'Max salary',
-            'class': 'form-control',
-            'min': 0
-        })
-    )
-    visa_required = forms.BooleanField(
-        required=False,
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
-    )
-    
-    work_mode = forms.ChoiceField(
-        choices=[('', 'Any')] + list(Job.WorkMode.choices),
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select filter-select'})
-    )
-    
-    employment_type = forms.MultipleChoiceField(
-        choices=Job.EmploymentType.choices,
-        required=False,
-        widget=forms.CheckboxSelectMultiple()
-    )
 
-
-class ApplicationForm(forms.ModelForm):
-    class Meta:
-        model = Application
-        fields = ['application_note']
-        widgets = {
-            'application_note': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 5,
-                'placeholder': 'Tell the employer why you are a great fit for this role. Highlight relevant skills, experience, and your enthusiasm for the position.',
-                'required': True
-            })
-        }
-        labels = {
-            'application_note': 'Why are you a good fit for this role?'
-        }

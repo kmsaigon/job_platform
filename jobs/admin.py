@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Job, JobStatusHistory, Application
+from .models import Job, JobStatusHistory
 
 
 @admin.register(Job)

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1>{{ template_data.title }}</h1>
+  <div class="card mt-3">
+    <div class="card-body">
+      <h3>{{ template_data.profile.name }}</h3>
+      {% if template_data.profile.headline %}
+        <p><strong>Headline:</strong> {{ template_data.profile.headline }}</p>
+      {% endif %}
+      {% if template_data.profile.skills %}
+        <p><strong>Skills:</strong><br/>{{ template_data.profile.skills|linebreaksbr }}</p>
+      {% endif %}
+      {% if template_data.profile.education %}
+        <p><strong>Education:</strong><br/>{{ template_data.profile.education|linebreaksbr }}</p>
+      {% endif %}
+      {% if template_data.profile.experience %}
+        <p><strong>Experience:</strong><br/>{{ template_data.profile.experience|linebreaksbr }}</p>
+      {% endif %}
+      {% if template_data.profile.links %}
+        <p><strong>Links:</strong><br/>{% for l in template_data.profile.links.splitlines %}<a href="{{ l }}" target="_blank">{{ l }}</a><br/>{% endfor %}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock content %}
