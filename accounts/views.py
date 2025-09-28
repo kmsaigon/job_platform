@@ -30,8 +30,11 @@ def signup(request):
         return render(request, 'accounts/signup.html', {'template_data': template_data})
     form = CustomUserCreationForm(request.POST, error_class=CustomErrorList)
     if form.is_valid():
-        form.save()
-        return redirect('accounts:login')
+        user = form.save()
+        auth_user = authenticate(request, username=user.username, password=request.POST.get('password1'))
+        if auth_user is not None:
+            auth_login(request, auth_user)
+        return redirect('profiles:profiles.create')
     template_data['form'] = form
     return render(request, 'accounts/signup.html', {'template_data': template_data})
 

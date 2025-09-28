@@ -134,5 +134,3 @@ def job_close(request, pk):
         JobStatusHistory.objects.create(job=job, from_status=old, to_status=job.status, changed_by=request.user)
         messages.info(request, 'Job closed.')
     return redirect('jobs:my_list')
-
-
