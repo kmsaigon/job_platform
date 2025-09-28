@@ -152,7 +152,13 @@ def job_close(request, pk):
         job.status = Job.Status.CLOSED
         job.save(update_fields=['status'])
         JobStatusHistory.objects.create(job=job, from_status=old, to_status=job.status, changed_by=request.user)
-        messages.info(request, 'Job closed.')
+        
+        applications_closed = Application.objects.filter(job=job).exclude(status=Application.Status.CLOSED)
+        for application in applications_closed:
+            application.status = Application.Status.CLOSED
+            application.save()
+
+        messages.info(request, f'Job closed and {applications_closed.count()} applications marked as closed.')
     return redirect('jobs:my_list')
 
 
