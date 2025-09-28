@@ -1,15 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import HttpResponseForbidden, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-
-from .forms import JobForm
-from .models import Job, JobStatusHistory
-
+from django.db.models import Q
+from django.core.paginator import Paginator
+from .forms import JobForm, JobSearchForm, ApplicationForm
+from .models import Job, JobStatusHistory, Application
 
 def is_admin(user):
     return user.is_superuser or user.groups.filter(name='admin').exists()
@@ -17,6 +17,11 @@ def is_admin(user):
 
 def is_recruiter(user):
     return user.groups.filter(name='recruiter').exists()
+
+
+def is_job_seeker(user):
+    # Job seeker is any authenticated user who is NOT a recruiter
+    return user.is_authenticated and not is_recruiter(user) and not is_admin(user)
 
 
 class JobPublicListView(ListView):
@@ -39,6 +44,21 @@ class JobPublicDetailView(DetailView):
         if self.request.user.is_authenticated and (is_admin(self.request.user)):
             return qs
         return qs.filter(status=Job.Status.PUBLISHED)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Check if user has already applied
+        if self.request.user.is_authenticated:
+            context['has_applied'] = Application.objects.filter(
+                job=self.object,
+                applicant=self.request.user
+            ).exists()
+            if context['has_applied']:
+                context['user_application'] = Application.objects.get(
+                    job=self.object,
+                    applicant=self.request.user
+                )
+        return context
 
 
 class OwnerRequiredMixin(UserPassesTestMixin):
@@ -134,3 +154,148 @@ def job_close(request, pk):
         JobStatusHistory.objects.create(job=job, from_status=old, to_status=job.status, changed_by=request.user)
         messages.info(request, 'Job closed.')
     return redirect('jobs:my_list')
+
+
+class JobSearchView(ListView):
+    model = Job
+    template_name = 'jobs/public_list.html'
+    context_object_name = 'jobs'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        # Start with published jobs only
+        queryset = Job.objects.filter(status=Job.Status.PUBLISHED).select_related('company', 'office_location').order_by('-published_at', '-updated_at')
+        
+        # Get form data
+        form = JobSearchForm(self.request.GET)
+        
+        if form.is_valid():
+            cleaned_data = form.cleaned_data
+            
+            # Title search (search in title, description, and company name)
+            if cleaned_data.get('title'):
+                title_query = cleaned_data['title']
+                queryset = queryset.filter(
+                    Q(title__icontains=title_query) |
+                    Q(description__icontains=title_query) |
+                    Q(company__name__icontains=title_query)
+                )
+            
+            # Location search (search in office location fields)
+            if cleaned_data.get('location'):
+                location_query = cleaned_data['location']
+                queryset = queryset.filter(
+                    Q(office_location__city__icontains=location_query) |
+                    Q(office_location__state__icontains=location_query) |
+                    Q(office_location__country__icontains=location_query) |
+                    Q(office_location__address__icontains=location_query)
+                ).distinct()
+            
+            # Salary range
+            if cleaned_data.get('salary_min'):
+                queryset = queryset.filter(
+                    Q(salary_max__gte=cleaned_data['salary_min']) | 
+                    Q(salary_max__isnull=True)
+                )
+            
+            if cleaned_data.get('salary_max'):
+                queryset = queryset.filter(
+                    Q(salary_min__lte=cleaned_data['salary_max']) | 
+                    Q(salary_min__isnull=True)
+                )
+            
+            # Work mode filter
+            if cleaned_data.get('work_mode'):
+                queryset = queryset.filter(work_mode=cleaned_data['work_mode'])
+            
+            # Employment type filter (multiple selection)
+            if cleaned_data.get('employment_type'):
+                queryset = queryset.filter(employment_type__in=cleaned_data['employment_type'])
+            
+            # Visa required filter
+            if cleaned_data.get('visa_required'):
+                queryset = queryset.filter(visa_required=True)
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = JobSearchForm(self.request.GET)
+        context['form'] = form
+        context['total_jobs'] = self.get_queryset().count()
+        
+        # Get user's applications for showing applied status
+        if self.request.user.is_authenticated:
+            user_applications = Application.objects.filter(
+                applicant=self.request.user
+            ).values_list('job_id', flat=True)
+            context['user_applications'] = list(user_applications)
+        else:
+            context['user_applications'] = []
+        
+        # Active filters for display
+        if form.is_valid():
+            active_filters = {}
+            for field_name, value in form.cleaned_data.items():
+                if value:
+                    if field_name == 'employment_type' and isinstance(value, list):
+                        active_filters[field_name] = ', '.join(value)
+                    elif field_name in ['salary_min', 'salary_max'] and value:
+                        active_filters[field_name] = f"${value:,.0f}"
+                    elif value not in [None, '', [], False]:
+                        active_filters[field_name] = str(value)
+            context['active_filters'] = active_filters
+        
+        return context
+
+
+# Application Views
+@login_required
+def apply_to_job(request, pk):
+    """Handle job application submission"""
+    job = get_object_or_404(Job, pk=pk, status=Job.Status.PUBLISHED)
+    
+    # Prevent recruiters from applying
+    if is_recruiter(request.user) or is_admin(request.user):
+        messages.error(request, 'Recruiters cannot apply to jobs.')
+        return redirect('jobs:public_detail', pk=job.pk, slug=job.slug)
+    
+    # Check if already applied
+    if Application.objects.filter(job=job, applicant=request.user).exists():
+        messages.info(request, 'You have already applied to this job.')
+        return redirect('jobs:public_detail', pk=job.pk, slug=job.slug)
+    
+    if request.method == 'POST':
+        form = ApplicationForm(request.POST)
+        if form.is_valid():
+            application = form.save(commit=False)
+            application.job = job
+            application.applicant = request.user
+            application.save()
+            messages.success(request, 'Application submitted successfully!')
+            return redirect('jobs:public_detail', pk=job.pk, slug=job.slug)
+    else:
+        form = ApplicationForm()
+    
+    context = {
+        'job': job,
+        'form': form
+    }
+    return render(request, 'jobs/apply.html', context)
+
+
+@login_required
+def my_applications(request):
+    """View all applications by the current user"""
+    if is_recruiter(request.user) or is_admin(request.user):
+        messages.error(request, 'This page is for job seekers only.')
+        return redirect('jobs:public_list')
+    
+    applications = Application.objects.filter(
+        applicant=request.user
+    ).select_related('job', 'job__company').order_by('-applied_at')
+    
+    context = {
+        'applications': applications
+    }
+    return render(request, 'jobs/my_applications.html', context)

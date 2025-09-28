@@ -15,10 +15,28 @@
         {% endif %}
       </p>
     {% endif %}
+    
+    <!-- Application Button -->
+    {% if user.is_authenticated %}
+      {% if has_applied %}
+        <div class="alert alert-success">
+          <i class="fas fa-check-circle"></i> You applied on {{ user_application.applied_at|date:"M d, Y" }}
+          <br>
+          <strong>Status:</strong> {{ user_application.get_status_display }}
+        </div>
+      {% else %}
+        <a href="{% url 'jobs:apply' job.pk %}" class="btn btn-primary btn-lg mb-3">
+          <i class="fas fa-paper-plane me-2"></i>Apply Now
+        </a>
+      {% endif %}
+    {% else %}
+      <a href="{% url 'login' %}?next={% url 'jobs:public_detail' job.pk job.slug %}" class="btn btn-primary btn-lg mb-3">
+        <i class="fas fa-sign-in-alt me-2"></i>Login to Apply
+      </a>
+    {% endif %}
+    
     <hr />
     <p style="white-space: pre-line">{{ job.description }}</p>
   </div>
 </div>
 {% endblock content %}
-
-
