@@ -13,7 +13,7 @@ class JobAdmin(admin.ModelAdmin):
 @admin.register(JobStatusHistory)
 class JobStatusHistoryAdmin(admin.ModelAdmin):
     list_display = ('job', 'from_status', 'to_status', 'changed_by', 'changed_at')
-    list_filter = ('to_status',)
+    list_filter = ('to_status',) # yo, gurt
 
 
 @admin.register(Application)
