@@ -1,8 +1,8 @@
 /* Keep all your existing CSS styles from the previous template */
 :root {
-    --primary-color: #667eea;
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --secondary-color: #f093fb;
+    --primary-color: #3b82f6;
+    --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    --secondary-color: #60a5fa;
     --success-color: #4ade80;
     --warning-color: #fbbf24;
     --danger-color: #f87171;
@@ -106,7 +106,7 @@
 
 .search-input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgb(102 126 234 / 0.1);
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
     outline: none;
 }
 
@@ -180,7 +180,7 @@
 
 .filter-input:focus, .filter-select:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgb(102 126 234 / 0.1);
+    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.1);
     outline: none;
 }
 
@@ -385,8 +385,8 @@
 }
 
 .visa-badge {
-    background: #f3e8ff;
-    color: #7c3aed;
+    background: #dbeafe;
+    color: #1d4ed8;
 }
 
 .job-title {
@@ -522,7 +522,7 @@
 
 .modern-pagination .page-link:hover {
     border-color: var(--primary-color);
-    background: rgb(102 126 234 / 0.05);
+    background: rgb(59 130 246 / 0.05);
     color: var(--primary-color);
 }
 
