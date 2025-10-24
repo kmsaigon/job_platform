@@ -16,10 +16,18 @@
                         Jobs Map
                     </h3>
                     <p class="mb-0 mt-2">Click on office locations to see available jobs</p>
-                    <div class="mt-2">
+                    <div class="mt-3 mt-md-0 d-flex align-items-center gap-2">
+                        <select id="distanceFilter" class="form-select form-select-sm bg-light text-dark" style="width: auto;">
+                            <option value="5">Within 5 miles</option>
+                            <option value="10" selected>Within 10 miles</option>
+                            <option value="25">Within 25 miles</option>
+                            <option value="50">Within 50 miles</option>
+                        </select>
                         <button id="findNearMeBtn" class="btn btn-outline-light btn-sm">
-                            <i class="fas fa-location-arrow me-1"></i>
-                            Find Jobs Near Me
+                            <i class="fas fa-location-arrow me-1"></i> Find Jobs Near Me
+                        </button>
+                        <button id="resetFilterBtn" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-undo me-1"></i> Reset Filter
                         </button>
                     </div>
                 </div>
@@ -56,7 +64,7 @@
 
 <script>
 // Map data from Django
-var officeData = {{ template_data.office_data|safe }};
+var officeData = JSON.parse('{{ template_data.office_data|escapejs }}');
 var apiKey = '{{ template_data.GOOGLE_MAPS_API_KEY }}';
 
 console.log('DEBUG: officeData from Django:', officeData);
@@ -122,6 +130,7 @@ function initMap() {
                 anchor: new google.maps.Point(20, 20)
             }
         });
+        marker.officeData = office;
 
         // Add click listener
         marker.addListener('click', function() {
@@ -130,6 +139,20 @@ function initMap() {
 
         markers.push(marker);
     });
+}
+
+// Helper: calculate distance between two lat/lng points (Haversine formula)
+function getDistanceMiles(lat1, lon1, lat2, lon2) {
+    const R = 3958.8; // Radius of Earth in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 function showJobsAtOffice(office) {
@@ -207,6 +230,7 @@ function showJobsAtOffice(office) {
 // Find jobs near me functionality - will be initialized after DOM loads
 function initFindNearMeButton() {
     const findNearMeBtn = document.getElementById('findNearMeBtn');
+    const distanceFilter = document.getElementById('distanceFilter');
     if (!findNearMeBtn) return;
     
     findNearMeBtn.addEventListener('click', function() {
@@ -214,6 +238,8 @@ function initFindNearMeButton() {
             alert('Map is not initialized yet. Please wait a moment and try again.');
             return;
         }
+        const selectedValue = distanceFilter.value;
+        const maxDistance = selectedValue === 'all' ? 'all' : parseFloat(selectedValue);
         
         if (navigator.geolocation) {
             this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Finding location...';
@@ -248,6 +274,18 @@ function initFindNearMeButton() {
                             anchor: new google.maps.Point(15, 15)
                         }
                     });
+                       //Filter office markers by distance
+                       markers.forEach(marker => {
+                        const office = marker.officeData;
+                        if (!office) return;
+
+                        const dist = getDistanceMiles(userLat, userLng, office.latitude, office.longitude);
+                        if (maxDistance === 'all' || dist <= maxDistance) {
+                            marker.setVisible(true);
+                        } else {
+                            marker.setVisible(false);
+                        }
+                    });
                     
                     // Reset button
                     findNearMeBtn.innerHTML = '<i class="fas fa-location-arrow me-1"></i>Find Jobs Near Me';
@@ -265,6 +303,65 @@ function initFindNearMeButton() {
         } else {
             alert('Geolocation is not supported by this browser.');
         }
+    });
+}
+function initResetFilterButton() {
+    const resetBtn = document.getElementById('resetFilterBtn');
+    if (!resetBtn) return;
+
+    resetBtn.addEventListener('click', function() {
+        // Reload the page to reset everything
+        location.reload();
+    });
+}
+function filterJobsByDistance(userLat, userLng, maxDistanceMiles) {
+    markers.forEach(marker => {
+        const office = marker.officeData;
+        const distance = getDistanceFromLatLonInMiles(userLat, userLng, office.latitude, office.longitude);
+        
+        if (maxDistanceMiles === 'all') {
+            markers.forEach(marker => marker.setMap(map));
+            return;
+        }
+    });
+}
+
+// Helper to compute distance using Haversine formula
+function getDistanceFromLatLonInMiles(lat1, lon1, lat2, lon2) {
+    const R = 3958.8; // Radius of Earth in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+function initDistanceFilter() {
+    const distanceFilter = document.getElementById('distanceFilter');
+    if (!distanceFilter) return;
+
+    distanceFilter.addEventListener('change', function() {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by this browser.');
+            return;
+        }
+
+        const selectedDistance = this.value === 'all' ? 'all' : parseFloat(this.value);
+
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                filterJobsByDistance(userLat, userLng, selectedDistance);
+            },
+            function(error) {
+                console.error('Geolocation error:', error);
+                alert('Unable to get your location. Please check your browser settings.');
+            }
+        );
     });
 }
 
@@ -299,6 +396,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Initialize the Find Near Me button
         initFindNearMeButton();
+        initDistanceFilter();
+        initResetFilterButton();
         
         // Set a timeout to show error if Google Maps doesn't load
         setTimeout(function() {

@@ -13,6 +13,11 @@ import json
 from .forms import JobForm, JobSearchForm, ApplicationForm
 from .models import Job, JobStatusHistory, Application
 from companies.models import OfficeLocation
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from math import radians, sin, cos, sqrt, atan2
+from .models import Job
+
 
 def is_admin(user):
     return user.is_superuser or user.groups.filter(name='admin').exists()
@@ -412,3 +417,42 @@ def job_map(request):
     }
     
     return render(request, 'jobs/job_map.html', context)
+
+# this is for job map filtering by distance
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Calculate the distance (miles) between two lat/lon points."""
+    R = 3958.8  # Radius of Earth in miles
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c
+
+@csrf_exempt
+def filter_by_distance(request):
+    """Return jobs within a given distance of the user’s current location."""
+    try:
+        lat = float(request.GET.get('lat'))
+        lng = float(request.GET.get('lng'))
+        max_distance = float(request.GET.get('distance', 10))
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid coordinates'}, status=400)
+
+    jobs = Job.objects.all()
+    filtered_jobs = []
+
+    for job in jobs:
+        dist = haversine(lat, lng, job.latitude, job.longitude)
+        if dist <= max_distance:
+            filtered_jobs.append({
+                'id': job.id,
+                'title': job.title,
+                'company': job.company,
+                'latitude': job.latitude,
+                'longitude': job.longitude,
+                'distance': round(dist, 2),
+            })
+
+    return JsonResponse({'jobs': filtered_jobs})
