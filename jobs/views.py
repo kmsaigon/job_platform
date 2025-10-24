@@ -9,6 +9,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.conf import settings
+import json
 from .forms import JobForm, JobSearchForm, ApplicationForm
 from .models import Job, JobStatusHistory, Application
 from companies.models import OfficeLocation
@@ -332,6 +333,18 @@ def job_map(request):
     """
     Display an interactive map showing job postings by office location.
     """
+    # Debug: Check what office locations exist
+    all_offices = OfficeLocation.objects.filter(latitude__isnull=False, longitude__isnull=False)
+    print(f"DEBUG: Found {all_offices.count()} offices with coordinates")
+    for office in all_offices:
+        print(f"DEBUG: Office {office.id} - {office.company.name} at {office.latitude}, {office.longitude}")
+    
+    # Debug: Check what jobs exist
+    all_jobs = Job.objects.filter(status=Job.Status.PUBLISHED)
+    print(f"DEBUG: Found {all_jobs.count()} published jobs")
+    for job in all_jobs:
+        print(f"DEBUG: Job {job.id} - {job.title} at office {job.office_location_id}")
+    
     # Get all office locations with coordinates that have published jobs
     office_locations = OfficeLocation.objects.filter(
         latitude__isnull=False,
@@ -341,8 +354,11 @@ def job_map(request):
         job_count=Count('job', filter=Q(job__status=Job.Status.PUBLISHED))
     ).select_related('company').distinct()
     
+    print(f"DEBUG: Found {office_locations.count()} offices with published jobs")
+    
     # Prepare data for JavaScript
     office_data = []
+    print(f"DEBUG: Processing {len(office_locations)} offices for map")
     for office in office_locations:
         # Get all published jobs at this office
         jobs_at_office = Job.objects.filter(
@@ -358,7 +374,7 @@ def job_map(request):
                 applicant=request.user
             ).values_list('job_id', flat=True)
         
-        office_data.append({
+        office_info = {
             'id': office.id,
             'company_name': office.company.name,
             'address': office.address,
@@ -383,12 +399,14 @@ def job_map(request):
                 }
                 for job in jobs_at_office
             ]
-        })
+        }
+        office_data.append(office_info)
+        print(f"DEBUG: Added office {office.id} ({office.company.name}) with {len(jobs_at_office)} jobs")
     
     context = {
         'template_data': {
             'title': 'Jobs Map',
-            'office_data': office_data,
+            'office_data': json.dumps(office_data),
             'GOOGLE_MAPS_API_KEY': settings.GOOGLE_MAPS_API_KEY,
         }
     }

@@ -56,10 +56,15 @@
 
 <script>
 // Map data from Django
-const officeData = {{ template_data.office_data|safe }};
-const apiKey = '{{ template_data.GOOGLE_MAPS_API_KEY }}';
+var officeData = {{ template_data.office_data|safe }};
+var apiKey = '{{ template_data.GOOGLE_MAPS_API_KEY }}';
 
-let map;
+console.log('DEBUG: officeData from Django:', officeData);
+console.log('DEBUG: officeData length:', officeData ? officeData.length : 'officeData is undefined');
+console.log('DEBUG: officeData type:', typeof officeData);
+console.log('DEBUG: Raw template data:', '{{ template_data.office_data|safe }}');
+
+var map;
 let markers = [];
 let userLocationMarker = null;
 
@@ -95,6 +100,12 @@ function initMap() {
     }
 
     // Add markers for office locations
+    if (!officeData || !Array.isArray(officeData)) {
+        console.error('DEBUG: officeData is not a valid array:', officeData);
+        return;
+    }
+    
+    console.log('DEBUG: Processing', officeData.length, 'offices for markers');
     officeData.forEach(office => {
         const marker = new google.maps.Marker({
             position: { lat: office.latitude, lng: office.longitude },
@@ -193,59 +204,69 @@ function showJobsAtOffice(office) {
     modal.show();
 }
 
-// Find jobs near me functionality
-document.getElementById('findNearMeBtn').addEventListener('click', function() {
-    if (navigator.geolocation) {
-        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Finding location...';
-        this.disabled = true;
+// Find jobs near me functionality - will be initialized after DOM loads
+function initFindNearMeButton() {
+    const findNearMeBtn = document.getElementById('findNearMeBtn');
+    if (!findNearMeBtn) return;
+    
+    findNearMeBtn.addEventListener('click', function() {
+        if (!map) {
+            alert('Map is not initialized yet. Please wait a moment and try again.');
+            return;
+        }
         
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                const userLat = position.coords.latitude;
-                const userLng = position.coords.longitude;
-                
-                // Center map on user location
-                map.setCenter({ lat: userLat, lng: userLng });
-                map.setZoom(10);
-                
-                // Add user location marker
-                if (userLocationMarker) {
-                    userLocationMarker.setMap(null);
-                }
-                
-                userLocationMarker = new google.maps.Marker({
-                    position: { lat: userLat, lng: userLng },
-                    map: map,
-                    title: 'Your Location',
-                    icon: {
-                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                            <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="15" cy="15" r="12" fill="#28a745" stroke="#ffffff" stroke-width="2"/>
-                                <text x="15" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
-                            </svg>
-                        `),
-                        scaledSize: new google.maps.Size(30, 30),
-                        anchor: new google.maps.Point(15, 15)
+        if (navigator.geolocation) {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Finding location...';
+            this.disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    
+                    // Center map on user location
+                    map.setCenter({ lat: userLat, lng: userLng });
+                    map.setZoom(10);
+                    
+                    // Add user location marker
+                    if (userLocationMarker) {
+                        userLocationMarker.setMap(null);
                     }
-                });
-                
-                // Reset button
-                document.getElementById('findNearMeBtn').innerHTML = '<i class="fas fa-location-arrow me-1"></i>Find Jobs Near Me';
-                document.getElementById('findNearMeBtn').disabled = false;
-            },
-            function(error) {
-                console.error('Geolocation error:', error);
-                alert('Unable to get your location. Please check your browser settings.');
-                
-                // Reset button
-                document.getElementById('findNearMeBtn').innerHTML = '<i class="fas fa-location-arrow me-1"></i>Find Jobs Near Me';
-                document.getElementById('findNearMeBtn').disabled = false;
-            }
-        );
-    } else {
-        alert('Geolocation is not supported by this browser.');
-    }
-});
+                    
+                    userLocationMarker = new google.maps.Marker({
+                        position: { lat: userLat, lng: userLng },
+                        map: map,
+                        title: 'Your Location',
+                        icon: {
+                            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                                <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="15" cy="15" r="12" fill="#28a745" stroke="#ffffff" stroke-width="2"/>
+                                    <text x="15" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">📍</text>
+                                </svg>
+                            `),
+                            scaledSize: new google.maps.Size(30, 30),
+                            anchor: new google.maps.Point(15, 15)
+                        }
+                    });
+                    
+                    // Reset button
+                    findNearMeBtn.innerHTML = '<i class="fas fa-location-arrow me-1"></i>Find Jobs Near Me';
+                    findNearMeBtn.disabled = false;
+                },
+                function(error) {
+                    console.error('Geolocation error:', error);
+                    alert('Unable to get your location. Please check your browser settings.');
+                    
+                    // Reset button
+                    findNearMeBtn.innerHTML = '<i class="fas fa-location-arrow me-1"></i>Find Jobs Near Me';
+                    findNearMeBtn.disabled = false;
+                }
+            );
+        } else {
+            alert('Geolocation is not supported by this browser.');
+        }
+    });
+}
 
 // Initialize map when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -275,6 +296,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
+        
+        // Initialize the Find Near Me button
+        initFindNearMeButton();
         
         // Set a timeout to show error if Google Maps doesn't load
         setTimeout(function() {
