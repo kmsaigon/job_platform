@@ -34,6 +34,7 @@
            <a class="nav-link" href="{% url 'home.about' %}">About</a>
            {% if user.is_authenticated %}
              <a class="nav-link" href="{% url 'jobs:public_list' %}">Jobs</a>
+             <a class="nav-link" href="{% url 'jobs:job_map' %}">Jobs Map</a>
              {% load account_tags %}
              {% if user|has_group:'recruiter' %}
                <a class="nav-link" href="{% url 'jobs:my_list' %}">My Jobs</a>

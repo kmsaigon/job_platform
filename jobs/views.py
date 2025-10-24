@@ -6,10 +6,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.core.paginator import Paginator
+from django.conf import settings
 from .forms import JobForm, JobSearchForm, ApplicationForm
 from .models import Job, JobStatusHistory, Application
+from companies.models import OfficeLocation
 
 def is_admin(user):
     return user.is_superuser or user.groups.filter(name='admin').exists()
@@ -323,3 +325,72 @@ def withdraw_application(request, application_id):
 
     messages.success(request, f'Your application for "{application.job.title}" has been withdrawn.')
     return redirect('jobs:my_applications')
+
+
+@login_required
+def job_map(request):
+    """
+    Display an interactive map showing job postings by office location.
+    """
+    # Get all office locations with coordinates that have published jobs
+    office_locations = OfficeLocation.objects.filter(
+        latitude__isnull=False,
+        longitude__isnull=False,
+        job__status=Job.Status.PUBLISHED
+    ).annotate(
+        job_count=Count('job', filter=Q(job__status=Job.Status.PUBLISHED))
+    ).select_related('company').distinct()
+    
+    # Prepare data for JavaScript
+    office_data = []
+    for office in office_locations:
+        # Get all published jobs at this office
+        jobs_at_office = Job.objects.filter(
+            office_location=office,
+            status=Job.Status.PUBLISHED
+        ).select_related('company')
+        
+        # Check if user has applied to any jobs at this office
+        user_applications = []
+        if request.user.is_authenticated:
+            user_applications = Application.objects.filter(
+                job__in=jobs_at_office,
+                applicant=request.user
+            ).values_list('job_id', flat=True)
+        
+        office_data.append({
+            'id': office.id,
+            'company_name': office.company.name,
+            'address': office.address,
+            'city': office.city,
+            'state': office.state,
+            'country': office.country,
+            'latitude': float(office.latitude),
+            'longitude': float(office.longitude),
+            'job_count': office.job_count,
+            'jobs': [
+                {
+                    'id': job.id,
+                    'title': job.title,
+                    'employment_type': job.get_employment_type_display(),
+                    'work_mode': job.get_work_mode_display(),
+                    'salary_min': float(job.salary_min) if job.salary_min else None,
+                    'salary_max': float(job.salary_max) if job.salary_max else None,
+                    'currency': job.currency,
+                    'slug': job.slug,
+                    'has_applied': job.id in user_applications,
+                    'url': reverse('jobs:public_detail', kwargs={'pk': job.pk, 'slug': job.slug})
+                }
+                for job in jobs_at_office
+            ]
+        })
+    
+    context = {
+        'template_data': {
+            'title': 'Jobs Map',
+            'office_data': office_data,
+            'GOOGLE_MAPS_API_KEY': settings.GOOGLE_MAPS_API_KEY,
+        }
+    }
+    
+    return render(request, 'jobs/job_map.html', context)
