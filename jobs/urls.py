@@ -16,6 +16,7 @@ urlpatterns = [
     path('my-applications/', views.my_applications, name='my_applications'),
     path('application/<int:application_id>/withdraw/', views.withdraw_application, name='withdraw_application'),
     path('map/', views.job_map, name='job_map'),
+    path('api/filter_by_distance/', views.filter_by_distance, name='filter_by_distance'),
 ]
 
 
