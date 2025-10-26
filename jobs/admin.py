@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail
+from .models import Job, JobStatusHistory, Application
 
 
 @admin.register(Job)
@@ -34,19 +34,3 @@ class ApplicationAdmin(admin.ModelAdmin):
             'fields': ('applied_at', 'updated_at')
         }),
     ) # yo, gurt
-
-
-@admin.register(Message)
-class MessageAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'receiver', 'application', 'subject', 'is_read', 'created_at')
-    list_filter = ('is_read', 'created_at')
-    search_fields = ('sender__username', 'receiver__username', 'subject', 'content')
-    readonly_fields = ['created_at']
-
-
-@admin.register(ApplicationEmail)
-class ApplicationEmailAdmin(admin.ModelAdmin):
-    list_display = ('application', 'subject', 'sent_by', 'sent_at')
-    list_filter = ('sent_at',)
-    search_fields = ('application__applicant__username', 'subject', 'message')
-    readonly_fields = ['sent_at']

@@ -99,35 +99,3 @@ class Application(models.Model):
 
     def __str__(self):
         return f"{self.applicant.username} -> {self.job.title}"
-
-
-class Message(models.Model):
-    """In-platform messaging between recruiters and candidates"""
-    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='messages')
-    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_messages')
-    receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='received_messages')
-    subject = models.CharField(max_length=255, blank=True)
-    content = models.TextField()
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"Message from {self.sender.username} to {self.receiver.username}"
-
-
-class ApplicationEmail(models.Model):
-    """Track emails sent through the platform"""
-    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='sent_emails')
-    subject = models.CharField(max_length=255)
-    message = models.TextField()
-    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='sent_application_emails')
-    sent_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-sent_at']
-
-    def __str__(self):
-        return f"Email for {self.application}"
