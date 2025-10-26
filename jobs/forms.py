@@ -1,5 +1,5 @@
 from django import forms
-from .models import Job, Application
+from .models import Job, Application, Message, ApplicationEmail
 
 
 class JobForm(forms.ModelForm):
@@ -218,3 +218,49 @@ class CandidateSearchForm(forms.Form):
         }),
         label='Sort By'
     )
+
+
+class MessageForm(forms.ModelForm):
+    """Form for sending in-platform messages"""
+    class Meta:
+        model = Message
+        fields = ['subject', 'content']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Message subject (optional)'
+            }),
+            'content': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 6,
+                'placeholder': 'Write your message here...',
+                'required': True
+            })
+        }
+        labels = {
+            'subject': 'Subject (optional)',
+            'content': 'Message'
+        }
+
+
+class ApplicationEmailForm(forms.ModelForm):
+    """Form for sending emails through the platform"""
+    class Meta:
+        model = ApplicationEmail
+        fields = ['subject', 'message']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Email subject'
+            }),
+            'message': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 8,
+                'placeholder': 'Your message will be emailed to the candidate...',
+                'required': True
+            })
+        }
+        labels = {
+            'subject': 'Subject',
+            'message': 'Message'
+        }
