@@ -17,21 +17,27 @@ class CustomUserCreationForm(UserCreationForm):
         ('job_seeker', 'Job Seeker'),
         ('recruiter', 'Recruiter'),
     )
+    
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'your@email.com'})
+    )
 
     role = forms.ChoiceField(choices=ROLE_CHOICES, widget=forms.RadioSelect)
     def __init__(self, *args, **kwargs):
         super(CustomUserCreationForm, self).__init__(*args, **kwargs)
-        for fieldname in ['username', 'password1', 'password2']:
+        for fieldname in ['username', 'email', 'password1', 'password2']:
             self.fields[fieldname].help_text = None
             self.fields[fieldname].widget.attrs.update({'class': 'form-control'})
         # Radio styling can be left to default Bootstrap
 
     def save(self, commit=True):
-        user = super().save(commit)
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        if commit:
+            user.save()
         role = self.cleaned_data.get('role')
         if role:
             group, _ = Group.objects.get_or_create(name=role if role != 'job_seeker' else 'job_seeker')
             user.groups.add(group)
         return user
-
-
