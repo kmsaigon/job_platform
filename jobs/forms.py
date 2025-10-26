@@ -6,9 +6,13 @@ class JobForm(forms.ModelForm):
     class Meta:
         model = Job
         fields = [
-            'company', 'title', 'description', 'employment_type', 'work_mode',
+            'company', 'title', 'description', 'required_skills', 'employment_type', 'work_mode',
             'visa_required', 'salary_min', 'salary_max', 'office_location'
         ]
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 10, 'class': 'form-control'}),
+            'required_skills': forms.Textarea(attrs={'rows': 5, 'class': 'form-control', 'placeholder': 'Python, Django, React, JavaScript (one per line or comma-separated)'}),
+        }
 
     def clean(self):
         cleaned = super().clean()

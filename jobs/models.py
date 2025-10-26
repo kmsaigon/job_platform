@@ -28,6 +28,7 @@ class Job(models.Model):
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name='jobs')
     title = models.CharField(max_length=255)
     description = models.TextField()
+    required_skills = models.TextField(blank=True, help_text='Required skills (one per line or comma-separated)')
     employment_type = models.CharField(max_length=20, choices=EmploymentType.choices)
     work_mode = models.CharField(max_length=20, choices=WorkMode.choices)
     visa_required = models.BooleanField(default=False)

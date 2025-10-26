@@ -5,9 +5,9 @@
     <div class="col-md-8">
       <div class="card shadow">
         <div class="card-body">
-          <h2>Create Profile</h2>
+          <h2>{{ template_data.title }}</h2>
           <hr />
-          <form method="POST">
+          <form method="post">
             {% csrf_token %}
             
             <!-- Basic Information -->

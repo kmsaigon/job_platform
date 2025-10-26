@@ -14,6 +14,7 @@ urlpatterns = [
     path('recruiter/<int:pk>/close', views.job_close, name='close'),
     path('<int:pk>/apply/', views.apply_to_job, name='apply'),
     path('my-applications/', views.my_applications, name='my_applications'),
+    path('recommendations/', views.recommendations, name='recommendations'),
     path('application/<int:application_id>/withdraw/', views.withdraw_application, name='withdraw_application'),
     path('map/', views.job_map, name='job_map'),
     path('api/filter_by_distance/', views.filter_by_distance, name='filter_by_distance'),
