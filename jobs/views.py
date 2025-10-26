@@ -691,8 +691,16 @@ class CandidateSearchView(LoginRequiredMixin, RecruiterRequiredMixin, ListView):
             search_lng = form.cleaned_data.get('search_lng')
         
         for candidate in context['candidates']:
+            # Process skills for display
+            skills_list = []
+            if candidate.skills:
+                # Split by both commas and newlines, then clean up
+                raw_skills = candidate.skills.replace('\n', ',').split(',')
+                skills_list = [skill.strip() for skill in raw_skills if skill.strip()]
+            
             candidate_data = {
                 'profile': candidate,
+                'skills_list': skills_list,
                 'skills_match_percentage': 0,
                 'matching_skills': [],
                 'distance_from_search': None

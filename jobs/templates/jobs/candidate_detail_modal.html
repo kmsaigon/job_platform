@@ -49,21 +49,14 @@
                             Skills
                         </h6>
                         <div class="skills-display">
-                            {% for skill in candidate.profile.skills|slice:":20" %}
-                                {% if skill.strip %}
-                                    <span class="badge bg-light text-dark me-1 mb-1 {% if skill.strip|lower in candidate.matching_skills %}border border-success{% endif %}">
-                                        {{ skill.strip }}
-                                        {% if skill.strip|lower in candidate.matching_skills %}
-                                            <i class="fas fa-check text-success ms-1"></i>
-                                        {% endif %}
-                                    </span>
-                                {% endif %}
-                            {% endfor %}
-                            {% if candidate.profile.skills|length > 20 %}
-                                <span class="badge bg-secondary me-1 mb-1">
-                                    +{{ candidate.profile.skills|length|add:"-20" }} more
+                            {% for skill in candidate.skills_list %}
+                                <span class="badge bg-light text-dark me-1 mb-1 {% if skill|lower in candidate.matching_skills %}border border-success{% endif %}">
+                                    {{ skill }}
+                                    {% if skill|lower in candidate.matching_skills %}
+                                        <i class="fas fa-check text-success ms-1"></i>
+                                    {% endif %}
                                 </span>
-                            {% endif %}
+                            {% endfor %}
                         </div>
                     </div>
                 {% endif %}

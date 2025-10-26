@@ -306,20 +306,15 @@
                                 </div>
                             </div>
                             
-                            {% if candidate_data.profile.skills %}
+                            {% if candidate_data.skills_list %}
                                 <div class="skills-section">
                                     <div class="skills-label">Skills:</div>
                                     <div class="skills-list">
-                                        {% for skill in candidate_data.profile.skills|slice:":10" %}
-                                            {% if skill.strip %}
-                                                <span class="skill-tag {% if skill.strip|lower in candidate_data.matching_skills %}matching{% endif %}">
-                                                    {{ skill.strip }}
-                                                </span>
-                                            {% endif %}
+                                        {% for skill in candidate_data.skills_list %}
+                                            <span class="skill-tag {% if skill|lower in candidate_data.matching_skills %}matching{% endif %}">
+                                                {{ skill }}
+                                            </span>
                                         {% endfor %}
-                                        {% if candidate_data.profile.skills|length > 10 %}
-                                            <span class="skill-tag">+{{ candidate_data.profile.skills|length|add:"-10" }} more</span>
-                                        {% endif %}
                                     </div>
                                 </div>
                             {% endif %}
