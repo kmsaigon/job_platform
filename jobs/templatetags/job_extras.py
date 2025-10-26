@@ -26,6 +26,13 @@ def url_replace(context, **kwargs):
     
     return query.urlencode()
 
+@register.filter(name='get_item')
+def get_item(dictionary, key):
+    """Get item from dictionary by key"""
+    if dictionary is None:
+        return []
+    return dictionary.get(key, [])
+
 # Add to your template at the top:
 # {% load job_extras %}
 
