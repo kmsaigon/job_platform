@@ -10,8 +10,9 @@ from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
-from .forms import JobForm, JobSearchForm, ApplicationForm
+from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm
 from .models import Job, JobStatusHistory, Application
+from profiles.models import Profile
 from companies.models import OfficeLocation
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -593,3 +594,154 @@ def filter_by_distance(request):
             })
 
     return JsonResponse({'offices': filtered_offices})
+
+
+class CandidateSearchView(LoginRequiredMixin, RecruiterRequiredMixin, ListView):
+    """View for recruiters to search for candidates by skills, location, and experience"""
+    model = Profile
+    template_name = 'jobs/candidate_search.html'
+    context_object_name = 'candidates'
+    paginate_by = 10
+    
+    def get_queryset(self):
+        # Start with public profiles only
+        queryset = Profile.objects.filter(
+            is_public=True
+        ).select_related('user').order_by('-updated_at')
+        
+        # Get form data
+        form = CandidateSearchForm(self.request.GET)
+        
+        if form.is_valid():
+            cleaned_data = form.cleaned_data
+            
+            # Skills search
+            if cleaned_data.get('skills'):
+                skills_query = cleaned_data['skills']
+                # Parse search skills
+                search_skills = [skill.strip().lower() for skill in skills_query.split(',') if skill.strip()]
+                
+                if search_skills:
+                    # Filter profiles that have at least one matching skill
+                    skills_filter = Q()
+                    for skill in search_skills:
+                        skills_filter |= Q(skills__icontains=skill)
+                    queryset = queryset.filter(skills_filter)
+            
+            # Experience search
+            if cleaned_data.get('experience'):
+                experience_query = cleaned_data['experience']
+                queryset = queryset.filter(
+                    Q(experience__icontains=experience_query) |
+                    Q(education__icontains=experience_query)
+                )
+            
+            # Location search
+            search_lat = cleaned_data.get('search_lat')
+            search_lng = cleaned_data.get('search_lng')
+            distance_radius = cleaned_data.get('distance_radius')
+            
+            if search_lat and search_lng and distance_radius:
+                try:
+                    user_lat = float(search_lat)
+                    user_lng = float(search_lng)
+                    radius = float(distance_radius)
+                    
+                    # Filter candidates within radius
+                    filtered_candidates = []
+                    for profile in queryset:
+                        # Include candidates without location preferences
+                        if not profile.preferred_location_lat or not profile.preferred_location_lng:
+                            filtered_candidates.append(profile.id)
+                            continue
+                            
+                        # Check distance for candidates with location preferences
+                        distance = haversine(
+                            user_lat, user_lng,
+                            float(profile.preferred_location_lat),
+                            float(profile.preferred_location_lng)
+                        )
+                        if distance <= radius:
+                            filtered_candidates.append(profile.id)
+                    
+                    queryset = queryset.filter(id__in=filtered_candidates)
+                except (ValueError, TypeError):
+                    pass  # Invalid coordinates, skip filter
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = CandidateSearchForm(self.request.GET)
+        context['form'] = form
+        
+        # Process candidates for display with matching information
+        candidates_with_matches = []
+        search_skills = []
+        
+        # Get search skills if provided
+        if form.is_valid() and form.cleaned_data.get('skills'):
+            search_skills = [skill.strip().lower() for skill in form.cleaned_data['skills'].split(',') if skill.strip()]
+        
+        # Get search location for distance calculation
+        search_lat = None
+        search_lng = None
+        if form.is_valid():
+            search_lat = form.cleaned_data.get('search_lat')
+            search_lng = form.cleaned_data.get('search_lng')
+        
+        for candidate in context['candidates']:
+            # Process skills for display
+            skills_list = []
+            if candidate.skills:
+                # Split by both commas and newlines, then clean up
+                raw_skills = candidate.skills.replace('\n', ',').split(',')
+                skills_list = [skill.strip() for skill in raw_skills if skill.strip()]
+            
+            candidate_data = {
+                'profile': candidate,
+                'skills_list': skills_list,
+                'skills_match_percentage': 0,
+                'matching_skills': [],
+                'distance_from_search': None
+            }
+            
+            # Calculate skills match
+            if search_skills and candidate.skills:
+                candidate_skills = [skill.strip().lower() for skill in candidate.skills.replace(',', '\n').split('\n') if skill.strip()]
+                matching_skills = [skill for skill in search_skills if skill in candidate_skills]
+                
+                if matching_skills:
+                    candidate_data['matching_skills'] = matching_skills
+                    candidate_data['skills_match_percentage'] = round((len(matching_skills) / len(search_skills)) * 100, 1)
+            
+            # Calculate distance if location search was performed
+            if search_lat and search_lng and candidate.preferred_location_lat and candidate.preferred_location_lng:
+                try:
+                    distance = haversine(
+                        float(search_lat), float(search_lng),
+                        float(candidate.preferred_location_lat),
+                        float(candidate.preferred_location_lng)
+                    )
+                    candidate_data['distance_from_search'] = round(distance, 1)
+                except (ValueError, TypeError):
+                    pass
+            
+            candidates_with_matches.append(candidate_data)
+        
+        # Sort candidates based on form selection
+        sort_by = form.cleaned_data.get('sort_by', 'skills_match') if form.is_valid() else 'skills_match'
+        
+        if sort_by == 'skills_match':
+            candidates_with_matches.sort(key=lambda x: (-x['skills_match_percentage'], x['profile'].updated_at), reverse=True)
+        elif sort_by == 'distance':
+            candidates_with_matches.sort(key=lambda x: (x['distance_from_search'] or float('inf'), -x['skills_match_percentage']))
+        elif sort_by == 'recent':
+            candidates_with_matches.sort(key=lambda x: x['profile'].updated_at, reverse=True)
+        elif sort_by == 'name':
+            candidates_with_matches.sort(key=lambda x: x['profile'].name.lower())
+        
+        context['candidates'] = candidates_with_matches
+        context['GOOGLE_MAPS_API_KEY'] = settings.GOOGLE_MAPS_API_KEY
+        
+        return context

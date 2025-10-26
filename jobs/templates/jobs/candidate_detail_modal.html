@@ -1,0 +1,229 @@
+<!-- Candidate Detail Modal -->
+<div class="modal fade" id="candidateModal{{ candidate.profile.id }}" tabindex="-1" aria-labelledby="candidateModalLabel{{ candidate.profile.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="candidateModalLabel{{ candidate.profile.id }}">
+                    <i class="fas fa-user me-2"></i>
+                    {{ candidate.profile.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Candidate Header Info -->
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        {% if candidate.profile.headline %}
+                            <h6 class="text-muted mb-2">{{ candidate.profile.headline }}</h6>
+                        {% endif %}
+                        
+                        <!-- Match Information -->
+                        <div class="d-flex align-items-center mb-3">
+                            {% if candidate.skills_match_percentage > 0 %}
+                                <span class="badge bg-success me-2">
+                                    <i class="fas fa-percentage me-1"></i>
+                                    {{ candidate.skills_match_percentage }}% Skills Match
+                                </span>
+                            {% endif %}
+                            {% if candidate.distance_from_search %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    {{ candidate.distance_from_search }} miles away
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            Updated {{ candidate.profile.updated_at|date:"M d, Y" }}
+                        </small>
+                    </div>
+                </div>
+                
+                <!-- Skills Section -->
+                {% if candidate.profile.skills and candidate.profile.show_skills %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-code me-2"></i>
+                            Skills
+                        </h6>
+                        <div class="skills-display">
+                            {% for skill in candidate.skills_list %}
+                                <span class="badge bg-light text-dark me-1 mb-1 {% if skill|lower in candidate.matching_skills %}border border-success{% endif %}">
+                                    {{ skill }}
+                                    {% if skill|lower in candidate.matching_skills %}
+                                        <i class="fas fa-check text-success ms-1"></i>
+                                    {% endif %}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Experience Section -->
+                {% if candidate.profile.experience and candidate.profile.show_experience %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-briefcase me-2"></i>
+                            Experience
+                        </h6>
+                        <div class="experience-content">
+                            <p class="text-muted">{{ candidate.profile.experience|linebreaks }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Education Section -->
+                {% if candidate.profile.education and candidate.profile.show_education %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-graduation-cap me-2"></i>
+                            Education
+                        </h6>
+                        <div class="education-content">
+                            <p class="text-muted">{{ candidate.profile.education|linebreaks }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Links Section -->
+                {% if candidate.profile.links and candidate.profile.show_links %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-link me-2"></i>
+                            Links & Portfolio
+                        </h6>
+                        <div class="links-content">
+                            {% for link in candidate.profile.links|linebreaks %}
+                                {% if link.strip %}
+                                    <div class="mb-2">
+                                        <a href="{{ link.strip }}" target="_blank" class="text-decoration-none">
+                                            <i class="fas fa-external-link-alt me-1"></i>
+                                            {{ link.strip }}
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Location Information -->
+                {% if candidate.profile.preferred_location_address %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            Preferred Location
+                        </h6>
+                        <div class="location-info">
+                            <p class="text-muted mb-1">
+                                <i class="fas fa-location-dot me-1"></i>
+                                {{ candidate.profile.preferred_location_address }}
+                            </p>
+                            {% if candidate.profile.commute_radius %}
+                                <small class="text-muted">
+                                    <i class="fas fa-circle me-1"></i>
+                                    Willing to commute up to {{ candidate.profile.commute_radius }} miles
+                                </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Contact Information -->
+                {% if candidate.profile.show_contact_info %}
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-envelope me-2"></i>
+                            Contact Information
+                        </h6>
+                        <div class="contact-info">
+                            <p class="text-muted mb-1">
+                                <i class="fas fa-envelope me-2"></i>
+                                <a href="mailto:{{ candidate.profile.user.email }}" class="text-decoration-none">
+                                    {{ candidate.profile.user.email }}
+                                </a>
+                            </p>
+                            <small class="text-muted">
+                                <i class="fas fa-user me-1"></i>
+                                Username: {{ candidate.profile.user.username }}
+                            </small>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Privacy Notice -->
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Privacy Notice:</strong> This candidate has made their profile public for recruiters. 
+                    Contact information is only shown if the candidate has enabled it in their privacy settings.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>
+                    Close
+                </button>
+                {% if candidate.profile.show_contact_info %}
+                    <a href="mailto:{{ candidate.profile.user.email }}" class="btn btn-primary">
+                        <i class="fas fa-envelope me-1"></i>
+                        Contact Candidate
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.skills-display .badge {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    display: inline-block;
+}
+
+.experience-content,
+.education-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #007bff;
+}
+
+.links-content a {
+    color: #007bff;
+    transition: color 0.3s ease;
+}
+
+.links-content a:hover {
+    color: #0056b3;
+}
+
+.location-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #28a745;
+}
+
+.contact-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #17a2b8;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+@media (max-width: 768px) {
+    .modal-lg {
+        max-width: 95%;
+        margin: 10px auto;
+    }
+}
+</style>
