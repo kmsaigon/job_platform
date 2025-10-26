@@ -10,8 +10,8 @@ from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
-from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm
-from .models import Job, JobStatusHistory, Application
+from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm, MessageForm, ApplicationEmailForm
+from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail
 from profiles.models import Profile
 from companies.models import OfficeLocation
 from django.http import JsonResponse
@@ -745,3 +745,225 @@ class CandidateSearchView(LoginRequiredMixin, RecruiterRequiredMixin, ListView):
         context['GOOGLE_MAPS_API_KEY'] = settings.GOOGLE_MAPS_API_KEY
         
         return context
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def kanban_board(request, job_id):
+    """Kanban board view for managing applicants"""
+    job = get_object_or_404(Job, pk=job_id)
+    
+    # Verify the recruiter owns this job
+    if job.posted_by != request.user and not is_admin(request.user):
+        return HttpResponseForbidden("You don't have permission to view this job's applications.")
+    
+    # Get all applications for this job, grouped by status
+    applications = Application.objects.filter(job=job).select_related('applicant', 'job__company')
+    
+    # Group applications by status
+    applications_by_status = {}
+    for status in Application.Status.choices:
+        status_key = status[0]
+        applications_by_status[status_key] = [
+            app for app in applications if app.status == status_key
+        ]
+    
+    context = {
+        'job': job,
+        'applications_by_status': applications_by_status,
+        'status_choices': Application.Status.choices
+    }
+    return render(request, 'jobs/kanban_board.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def update_application_status(request, application_id):
+    """Update application status via AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+    
+    application = get_object_or_404(Application, pk=application_id)
+    
+    # Verify the recruiter owns the job
+    if application.job.posted_by != request.user and not is_admin(request.user):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    new_status = request.POST.get('status')
+    if new_status not in dict(Application.Status.choices):
+        return JsonResponse({'error': 'Invalid status'}, status=400)
+    
+    application.status = new_status
+    application.save()
+    
+    return JsonResponse({
+        'success': True,
+        'status': application.get_status_display(),
+        'status_key': application.status
+    })
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def send_message(request, application_id):
+    """Send a message to a candidate"""
+    application = get_object_or_404(Application, pk=application_id)
+    
+    # Verify the recruiter owns the job
+    if application.job.posted_by != request.user and not is_admin(request.user):
+        return HttpResponseForbidden("You don't have permission to send messages for this application.")
+    
+    if request.method == 'POST':
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.application = application
+            message.sender = request.user
+            message.receiver = application.applicant
+            message.save()
+            messages.success(request, 'Message sent successfully!')
+            return redirect('jobs:kanban_board', job_id=application.job.id)
+    else:
+        # Pre-fill subject with job title
+        initial_subject = f"Re: Application for {application.job.title}"
+        form = MessageForm(initial={'subject': initial_subject})
+    
+    context = {
+        'application': application,
+        'form': form
+    }
+    return render(request, 'jobs/send_message.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def send_email(request, application_id):
+    """Send an email to a candidate through the platform"""
+    application = get_object_or_404(Application, pk=application_id)
+    
+    # Verify the recruiter owns the job
+    if application.job.posted_by != request.user and not is_admin(request.user):
+        return HttpResponseForbidden("You don't have permission to send emails for this application.")
+    
+    # Check if applicant has an email address
+    if not application.applicant.email:
+        messages.error(request, 'This candidate has not provided an email address. Please use in-platform messaging instead.')
+        return redirect('jobs:kanban_board', job_id=application.job.id)
+    
+    if request.method == 'POST':
+        form = ApplicationEmailForm(request.POST)
+        if form.is_valid():
+            # Save email record
+            email_record = form.save(commit=False)
+            email_record.application = application
+            email_record.sent_by = request.user
+            email_record.save()
+            
+            # Send the actual email
+            from django.core.mail import send_mail
+            from django.conf import settings
+            
+            try:
+                send_mail(
+                    subject=form.cleaned_data['subject'],
+                    message=form.cleaned_data['message'],
+                    from_email=settings.DEFAULT_FROM_EMAIL or request.user.email,
+                    recipient_list=[application.applicant.email],
+                    fail_silently=False,
+                )
+                messages.success(request, f'Email sent to {application.applicant.email} successfully!')
+            except Exception as e:
+                messages.error(request, f'Failed to send email: {str(e)}')
+            
+            return redirect('jobs:kanban_board', job_id=application.job.id)
+    else:
+        # Pre-fill subject with job title
+        initial_subject = f"Re: Application for {application.job.title}"
+        form = ApplicationEmailForm(initial={'subject': initial_subject})
+    
+    context = {
+        'application': application,
+        'form': form,
+        'recipient_email': application.applicant.email
+    }
+    return render(request, 'jobs/send_email.html', context)
+
+
+@login_required
+def view_messages(request, application_id):
+    """View conversation for an application"""
+    application = get_object_or_404(Application, pk=application_id)
+    
+    # Verify user has permission to view messages
+    if request.user != application.applicant and (application.job.posted_by != request.user and not is_admin(request.user)):
+        return HttpResponseForbidden("You don't have permission to view these messages.")
+    
+    # Get all messages for this application
+    conversation_messages = Message.objects.filter(application=application).select_related('sender', 'receiver')
+    
+    # Mark messages as read for the current user
+    Message.objects.filter(
+        application=application,
+        receiver=request.user,
+        is_read=False
+    ).update(is_read=True)
+    
+    context = {
+        'application': application,
+        'messages': conversation_messages
+    }
+    return render(request, 'jobs/view_messages.html', context)
+
+
+@login_required
+def reply_message(request, application_id):
+    """Reply to a message conversation"""
+    application = get_object_or_404(Application, pk=application_id)
+    
+    # Verify user has permission
+    if request.user != application.applicant and (application.job.posted_by != request.user and not is_admin(request.user)):
+        return HttpResponseForbidden()
+    
+    if request.method == 'POST':
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.application = application
+            message.sender = request.user
+            # Set receiver to the other party
+            if request.user == application.applicant:
+                message.receiver = application.job.posted_by
+            else:
+                message.receiver = application.applicant
+            message.save()
+            messages.success(request, 'Message sent!')
+            return redirect('jobs:view_messages', application_id=application_id)
+    else:
+        form = MessageForm()
+    
+    context = {
+        'application': application,
+        'form': form
+    }
+    return render(request, 'jobs/reply_message.html', context)
+
+
+@login_required
+def view_emails(request, application_id):
+    """View emails sent to a job seeker for a specific application"""
+    application = get_object_or_404(Application, pk=application_id)
+    
+    # Verify this is the applicant
+    if application.applicant != request.user:
+        return HttpResponseForbidden("You don't have permission to view these emails.")
+    
+    # Get all emails sent for this application
+    emails = ApplicationEmail.objects.filter(
+        application=application
+    ).select_related('sent_by').order_by('-sent_at')
+    
+    context = {
+        'application': application,
+        'emails': emails
+    }
+    return render(request, 'jobs/view_emails.html', context)

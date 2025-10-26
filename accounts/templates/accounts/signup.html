@@ -4,14 +4,66 @@
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-md-8">
-        <div class="card shadow p-3 mb-4 rounded">
+        <div class="card shadow p-4 mb-4 rounded">
           <div class="card-body">
-            <h2>Sign Up</h2>
-            <hr />
+            <h2 class="mb-4"><i class="fas fa-user-plus me-2"></i>Sign Up</h2>
+            
+            {% if form.errors %}
+              <div class="alert alert-danger">
+                <strong>Please correct the errors below:</strong>
+                {{ form.errors }}
+              </div>
+            {% endif %}
+            
             <form method="POST">
               {% csrf_token %}
-              {{ template_data.form.as_p }}
-              <button type="submit" class="btn bg-dark text-white">Sign Up</button>
+              
+              <div class="mb-3">
+                <label for="id_username" class="form-label">Username</label>
+                <input type="text" name="username" id="id_username" class="form-control" required>
+                <small class="form-text text-muted">Required. Letters, digits and @/./+/-/_ only.</small>
+              </div>
+              
+              <div class="mb-3">
+                <label for="id_email" class="form-label">Email Address</label>
+                <input type="email" name="email" id="id_email" class="form-control" required placeholder="your@email.com">
+                <small class="form-text text-muted">
+                  <i class="fas fa-info-circle me-1"></i>This email will be used for application notifications and recruiter communications.
+                </small>
+              </div>
+              
+              <div class="mb-3">
+                <label for="id_password1" class="form-label">Password</label>
+                <input type="password" name="password1" id="id_password1" class="form-control" required>
+              </div>
+              
+              <div class="mb-3">
+                <label for="id_password2" class="form-label">Confirm Password</label>
+                <input type="password" name="password2" id="id_password2" class="form-control" required>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">I am a:</label>
+                <div>
+                  <input type="radio" name="role" id="id_role_0" value="job_seeker" class="form-check-input" checked required>
+                  <label for="id_role_0" class="form-check-label">Job Seeker</label>
+                </div>
+                <div>
+                  <input type="radio" name="role" id="id_role_1" value="recruiter" class="form-check-input" required>
+                  <label for="id_role_1" class="form-check-label">Recruiter</label>
+                </div>
+              </div>
+              
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-user-plus me-2"></i>Create Account
+              </button>
+              
+              <div class="text-center mt-3">
+                <p class="text-muted mb-0">
+                  Already have an account? 
+                  <a href="{% url 'accounts:login' %}">Log in</a>
+                </p>
+              </div>
             </form>
           </div>
         </div>

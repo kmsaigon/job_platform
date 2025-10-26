@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4><i class="fas fa-envelope me-2"></i>Emails from Recruiter</h4>
+                    <a href="{% url 'jobs:my_applications' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Applications
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Job:</strong> {{ application.job.title }}<br>
+                        <strong>Company:</strong> {{ application.job.company.name }}
+                    </div>
+                    
+                    <hr>
+                    
+                    {% if emails %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            These are copies of emails that were sent to your registered email address: <strong>{{ request.user.email }}</strong>
+                        </div>
+                        
+                        {% for email in emails %}
+                            <div class="card mb-3 border-primary">
+                                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ email.subject }}</strong>
+                                    </div>
+                                    <small>{{ email.sent_at|date:"M d, Y g:i A" }}</small>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>From: 
+                                            {% if email.sent_by %}
+                                                {{ email.sent_by.username }}
+                                                {% if email.sent_by.profile %}
+                                                    ({{ email.sent_by.profile.name }})
+                                                {% endif %}
+                                            {% else %}
+                                                System
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    <div class="border-top pt-3">
+                                        <p class="mb-0" style="white-space: pre-wrap;">{{ email.message }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-envelope fa-3x text-muted mb-3"></i>
+                            <h5>No Emails Yet</h5>
+                            <p class="text-muted">You haven't received any emails from the recruiter for this application yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
