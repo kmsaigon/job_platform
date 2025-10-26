@@ -25,10 +25,12 @@ def create(request):
         form = CustomProfileCreationForm()
     
     context = {
-        'form': form,
-        'title': 'Create Profile'
+        'template_data': {
+            'form': form,
+            'title': 'Create Profile'
+        }
     }
-    return render(request, 'profiles/profile_form.html', context)
+    return render(request, 'profiles/create.html', context)
 
 
 @login_required
@@ -37,10 +39,12 @@ def detail(request):
     profile = get_object_or_404(Profile, user=request.user)
     
     context = {
-        'profile': profile,
-        'title': 'My Profile'
+        'template_data': {
+            'profile': profile,
+            'title': 'My Profile'
+        }
     }
-    return render(request, 'profiles/profile_detail.html', context)
+    return render(request, 'profiles/detail.html', context)
 
 
 @login_required
@@ -58,8 +62,10 @@ def edit(request):
         form = CustomProfileCreationForm(instance=profile)
     
     context = {
-        'form': form,
-        'profile': profile,
-        'title': 'Edit Profile'
+        'template_data': {
+            'form': form,
+            'profile': profile,
+            'title': 'Edit Profile'
+        }
     }
-    return render(request, 'profiles/profile_form.html', context)
+    return render(request, 'profiles/edit.html', context)

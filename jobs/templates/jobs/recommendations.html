@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Skills Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1>{{ template_data.title }}</h1>
+                <a href="{% url 'profiles:profiles.edit' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-edit me-1"></i>Edit Skills
+                </a>
+            </div>
+            
+            <!-- User Skills Display -->
+            <div class="card border-primary mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <h5 class="mb-0 me-2">
+                            <i class="fas fa-user-check text-primary me-2"></i>Your Skills:
+                        </h5>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for skill in template_data.user_skills %}
+                        <span class="badge bg-primary fs-6 py-2 px-3">
+                            <i class="fas fa-check-circle me-1"></i>{{ skill|title }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if template_data.recommended_jobs %}
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    We found {{ template_data.recommended_jobs|length }} job{{ template_data.recommended_jobs|length|pluralize }} that match your skills!
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Recommendations -->
+        <div class="row">
+            {% for recommendation in template_data.recommended_jobs %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm position-relative">
+                    <!-- Match Score Badge -->
+                    <div class="position-absolute top-0 end-0 m-2">
+                        {% if recommendation.match_score >= 80 %}
+                            <span class="badge bg-success">Excellent Match</span>
+                        {% elif recommendation.match_score >= 50 %}
+                            <span class="badge bg-info">Good Match</span>
+                        {% elif recommendation.match_score >= 25 %}
+                            <span class="badge bg-warning">Fair Match</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Low Match</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- Match Score Display -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Match Score:</small>
+                                <strong class="text-primary">{{ recommendation.match_score }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ recommendation.match_score }}%; background-color: 
+                                     {% if recommendation.match_score >= 80 %}var(--bs-success)
+                                     {% elif recommendation.match_score >= 50 %}var(--bs-info)
+                                     {% elif recommendation.match_score >= 25 %}var(--bs-warning)
+                                     {% else %}var(--bs-secondary)
+                                     {% endif %}" 
+                                     aria-valuenow="{{ recommendation.match_score }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                            {% if recommendation.total_required > 0 %}
+                            <small class="text-muted">
+                                {{ recommendation.match_count }} of {{ recommendation.total_required }} required skills match
+                            </small>
+                            {% else %}
+                            <small class="text-muted">Skills not specified</small>
+                            {% endif %}
+                        </div>
+                        
+                        <hr>
+                        
+                        <h5 class="card-title">
+                            <a href="{% url 'jobs:public_detail' pk=recommendation.job.pk slug=recommendation.job.slug %}" 
+                               class="text-decoration-none">
+                                {{ recommendation.job.title }}
+                            </a>
+                        </h5>
+                        
+                        <h6 class="card-subtitle mb-2 text-muted">
+                            <i class="fas fa-building me-1"></i>{{ recommendation.job.company.name }}
+                        </h6>
+                        
+                        <div class="mb-2">
+                            <span class="badge bg-primary">{{ recommendation.job.get_employment_type_display }}</span>
+                            <span class="badge bg-secondary">{{ recommendation.job.get_work_mode_display }}</span>
+                        </div>
+                        
+                        {% if recommendation.job.office_location %}
+                        <p class="card-text small mb-2">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {{ recommendation.job.office_location.city }}{% if recommendation.job.office_location.state %}, {{ recommendation.job.office_location.state }}{% endif %}
+                        </p>
+                        {% endif %}
+                        
+                        {% if recommendation.job.salary_min or recommendation.job.salary_max %}
+                        <p class="card-text small text-success mb-2">
+                            <i class="fas fa-dollar-sign me-1"></i>
+                            {% if recommendation.job.salary_min and recommendation.job.salary_max %}
+                                {{ recommendation.job.currency }} {{ recommendation.job.salary_min|floatformat:0 }} - {{ recommendation.job.salary_max|floatformat:0 }}
+                            {% elif recommendation.job.salary_min %}
+                                {{ recommendation.job.currency }} {{ recommendation.job.salary_min|floatformat:0 }}+
+                            {% else %}
+                                Up to {{ recommendation.job.currency }} {{ recommendation.job.salary_max|floatformat:0 }}
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                        
+                        <p class="card-text">{{ recommendation.job.description|truncatewords:20 }}</p>
+                        
+                        <!-- Required Skills -->
+                        {% if recommendation.job_skills_display %}
+                        <div class="mb-3">
+                            <small class="text-muted"><strong>Required Skills:</strong></small>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                {% for skill in recommendation.job_skills_display %}
+                                <span class="badge bg-light text-dark small">{{ skill|truncatewords:1 }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Actions -->
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'jobs:public_detail' pk=recommendation.job.pk slug=recommendation.job.slug %}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i>View Details
+                            </a>
+                            {% if recommendation.has_applied %}
+                            <span class="badge bg-success w-100 py-2">
+                                <i class="fas fa-check me-1"></i>Already Applied
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No job recommendations found. Try adding more skills to your profile.
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No job recommendations found at this time. Make sure your profile has skills listed!
+                    <a href="{% url 'profiles:profiles.edit' %}" class="btn btn-primary btn-sm ms-2">
+                        Update Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: translateY(-5px);
+}
+.progress {
+    background-color: #e9ecef;
+}
+</style>
+{% endblock %}
+

@@ -39,6 +39,7 @@
              {% if user|has_group:'recruiter' %}
                <a class="nav-link" href="{% url 'jobs:my_list' %}">My Jobs</a>
               {% elif user|has_group:'job_seeker' %}
+                <a class="nav-link" href="{% url 'jobs:recommendations' %}">Recommendations</a>
                 <a class="nav-link" href="{% url 'jobs:my_applications' %}">My Applications</a>
                 {% if user.profile %}
                   <a class="nav-link" href="{% url 'profiles:profiles.detail' %}">My Profile</a>

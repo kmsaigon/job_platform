@@ -341,6 +341,95 @@ def my_applications(request):
     }
     return render(request, 'jobs/my_applications.html', context)
 
+
+@login_required
+def recommendations(request):
+    """Show job recommendations based on user skills"""
+    if not hasattr(request.user, 'profile') or not request.user.profile.skills:
+        messages.warning(request, 'Please update your profile with skills to receive personalized job recommendations.')
+        return redirect('profiles:profiles.edit')
+    
+    user_skills = request.user.profile.skills
+    # Parse user skills - handle both comma-separated and line-separated
+    user_skills_list = []
+    for line in user_skills.replace(',', '\n').split('\n'):
+        for skill in line.split(','):
+            skill = skill.strip().lower()
+            if skill:
+                user_skills_list.append(skill)
+    
+    if not user_skills_list:
+        messages.warning(request, 'Please add skills to your profile to receive recommendations.')
+        return redirect('profiles:profiles.edit')
+    
+    # Get all published jobs
+    all_jobs = Job.objects.filter(status=Job.Status.PUBLISHED).select_related('company', 'office_location')
+    
+    # Calculate skill match score for each job
+    recommended_jobs = []
+    processed_jobs = {}  # Keep track of jobs and their match scores
+    
+    for job in all_jobs:
+        # Skip if we've already processed this job
+        if job.id in processed_jobs:
+            continue
+            
+        skill_matches = set()  # Use a set to avoid duplicate skill matches
+        job_skills_list = []
+        
+        # Check skills in required_skills field
+        if job.required_skills:
+            for line in job.required_skills.replace(',', '\n').split('\n'):
+                for skill in line.split(','):
+                    skill = skill.strip().lower()
+                    if skill:
+                        job_skills_list.append(skill)
+                        if skill in user_skills_list:
+                            skill_matches.add(skill)
+        
+        # Check skills in job description
+        if job.description:
+            for user_skill in user_skills_list:
+                user_skill_lower = user_skill.lower()
+                if user_skill_lower in job.description.lower():
+                    skill_matches.add(user_skill)
+        
+        match_count = len(skill_matches)
+        total_required = max(len(job_skills_list), 1)  # Ensure we don't divide by zero
+        match_score = (match_count / total_required) * 100 if total_required > 0 else 0
+        
+        # Include job if there's at least one skill match in either required skills or description
+        if match_count > 0:  # Only include if there's at least one match
+            processed_jobs[job.id] = {
+                'job': job,
+                'match_score': round(match_score, 1),
+                'match_count': match_count,
+                'total_required': total_required,
+                'has_applied': Application.objects.filter(
+                    job=job,
+                    applicant=request.user
+                ).exists(),
+                'job_skills_display': [
+                    skill.strip() for skill in (job.required_skills or '').replace(',', '\n').split('\n')
+                    if skill.strip()
+                ][:5]  # Limit to 5 skills for display
+            }
+    
+    # Convert processed jobs to list and sort by match score (descending) and publish date
+    recommended_jobs = sorted(
+        processed_jobs.values(),
+        key=lambda x: (-x['match_score'], x['job'].published_at or x['job'].created_at)
+    )[:20]  # Limit to top 20 recommendations
+    
+    context = {
+        'template_data': {
+            'recommended_jobs': recommended_jobs,
+            'user_skills': user_skills_list,
+            'title': 'Job Recommendations'
+        }
+    }
+    return render(request, 'jobs/recommendations.html', context)
+
 @login_required
 def withdraw_application(request, application_id):
     """Allow job seekers to withdraw their application"""
