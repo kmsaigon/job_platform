@@ -19,6 +19,12 @@ class Profile(models.Model):
 	show_skills = models.BooleanField(default=True, help_text='Show skills to recruiters')
 	show_links = models.BooleanField(default=True, help_text='Show links to recruiters')
 
+	# Commute preferences - ADD THESE LINES
+	preferred_location_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text='Latitude of preferred location')
+	preferred_location_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text='Longitude of preferred location')
+	preferred_location_address = models.CharField(max_length=255, blank=True, help_text='Address of preferred location')
+	commute_radius = models.IntegerField(default=25, help_text='Preferred commute radius in miles')
+
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 

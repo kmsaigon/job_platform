@@ -1,5 +1,5 @@
 from django import forms
-from .models import Job, Application  # ADD Application here
+from .models import Job, Application
 
 
 class JobForm(forms.ModelForm):
@@ -17,6 +17,7 @@ class JobForm(forms.ModelForm):
         if salary_min is not None and salary_max is not None and salary_min > salary_max:
             self.add_error('salary_min', 'Minimum salary cannot exceed maximum salary.')
         return cleaned
+
 
 class JobSearchForm(forms.Form):
     title = forms.CharField(
@@ -54,6 +55,7 @@ class JobSearchForm(forms.Form):
             'min': 0
         })
     )
+    
     visa_required = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
@@ -69,6 +71,45 @@ class JobSearchForm(forms.Form):
         choices=Job.EmploymentType.choices,
         required=False,
         widget=forms.CheckboxSelectMultiple()
+    )
+    
+    # NEW: Commute radius filter fields
+    commute_location = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Your location (e.g., Atlanta, GA)',
+            'class': 'form-control',
+            'id': 'commute_location'
+        }),
+        label='Your Location'
+    )
+    
+    commute_lat = forms.DecimalField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'commute_lat'})
+    )
+    
+    commute_lng = forms.DecimalField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'commute_lng'})
+    )
+    
+    commute_radius = forms.ChoiceField(
+        choices=[
+            ('', 'Any distance'),
+            ('5', 'Within 5 miles'),
+            ('10', 'Within 10 miles'),
+            ('25', 'Within 25 miles'),
+            ('50', 'Within 50 miles'),
+            ('100', 'Within 100 miles'),
+        ],
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'commute_radius'
+        }),
+        label='Distance'
     )
 
 

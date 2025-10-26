@@ -170,6 +170,17 @@ def job_close(request, pk):
     return redirect('jobs:my_list')
 
 
+def haversine(lat1, lon1, lat2, lon2):
+    """Calculate the distance (miles) between two lat/lon points."""
+    R = 3958.8  # Radius of Earth in miles
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c
+
+
 class JobSearchView(ListView):
     model = Job
     template_name = 'jobs/public_list.html'
@@ -201,58 +212,74 @@ class JobSearchView(ListView):
                 queryset = queryset.filter(
                     Q(office_location__city__icontains=location_query) |
                     Q(office_location__state__icontains=location_query) |
-                    Q(office_location__country__icontains=location_query) |
-                    Q(office_location__address__icontains=location_query)
-                ).distinct()
-            
-            # Salary range
-            if cleaned_data.get('salary_min'):
-                queryset = queryset.filter(
-                    Q(salary_max__gte=cleaned_data['salary_min']) | 
-                    Q(salary_max__isnull=True)
+                    Q(office_location__country__icontains=location_query)
                 )
             
-            if cleaned_data.get('salary_max'):
-                queryset = queryset.filter(
-                    Q(salary_min__lte=cleaned_data['salary_max']) | 
-                    Q(salary_min__isnull=True)
-                )
-            
-            # Work mode filter
+            # Work style filter
             if cleaned_data.get('work_mode'):
                 queryset = queryset.filter(work_mode=cleaned_data['work_mode'])
             
             # Employment type filter (multiple selection)
-            if cleaned_data.get('employment_type'):
-                queryset = queryset.filter(employment_type__in=cleaned_data['employment_type'])
+            employment_types = cleaned_data.get('employment_type')
+            if employment_types:
+                queryset = queryset.filter(employment_type__in=employment_types)
+            
+            # Salary range filters
+            if cleaned_data.get('salary_min'):
+                queryset = queryset.filter(salary_min__gte=cleaned_data['salary_min'])
+            
+            if cleaned_data.get('salary_max'):
+                queryset = queryset.filter(salary_max__lte=cleaned_data['salary_max'])
             
             # Visa required filter
-            if cleaned_data.get('visa_required'):
-                queryset = queryset.filter(visa_required=True)
+            if cleaned_data.get('visa_required') is not None:
+                queryset = queryset.filter(visa_required=cleaned_data['visa_required'])
+            
+            # NEW: Commute radius filter
+            commute_lat = cleaned_data.get('commute_lat')
+            commute_lng = cleaned_data.get('commute_lng')
+            commute_radius = cleaned_data.get('commute_radius')
+            
+            if commute_lat and commute_lng and commute_radius:
+                try:
+                    user_lat = float(commute_lat)
+                    user_lng = float(commute_lng)
+                    radius = float(commute_radius)
+                    
+                    # Filter jobs within radius
+                    filtered_jobs = []
+                    for job in queryset:
+                        # Include remote jobs regardless of distance
+                        if job.work_mode == Job.WorkMode.REMOTE:
+                            filtered_jobs.append(job.id)
+                        # Check distance for jobs with office locations
+                        elif job.office_location and job.office_location.latitude and job.office_location.longitude:
+                            distance = haversine(
+                                user_lat, user_lng,
+                                float(job.office_location.latitude),
+                                float(job.office_location.longitude)
+                            )
+                            if distance <= radius:
+                                filtered_jobs.append(job.id)
+                    
+                    queryset = queryset.filter(id__in=filtered_jobs)
+                except (ValueError, TypeError):
+                    pass  # Invalid coordinates, skip filter
         
         return queryset
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['form'] = JobSearchForm(self.request.GET)
+        context['GOOGLE_MAPS_API_KEY'] = settings.GOOGLE_MAPS_API_KEY
+        
+        # Add active filters to context for display
         form = JobSearchForm(self.request.GET)
-        context['form'] = form
-        context['total_jobs'] = self.get_queryset().count()
-        
-        # Get user's applications for showing applied status
-        if self.request.user.is_authenticated:
-            user_applications = Application.objects.filter(
-                applicant=self.request.user
-            ).values_list('job_id', flat=True)
-            context['user_applications'] = list(user_applications)
-        else:
-            context['user_applications'] = []
-        
-        # Active filters for display
         if form.is_valid():
             active_filters = {}
             for field_name, value in form.cleaned_data.items():
                 if value:
-                    if field_name == 'employment_type' and isinstance(value, list):
+                    if isinstance(value, list):
                         active_filters[field_name] = ', '.join(value)
                     elif field_name in ['salary_min', 'salary_max'] and value:
                         active_filters[field_name] = f"${value:,.0f}"
@@ -337,18 +364,21 @@ def withdraw_application(request, application_id):
 def job_map(request):
     """
     Display an interactive map showing job postings by office location.
+    If user has set preferred location and commute radius, automatically filter jobs.
     """
-    # Debug: Check what office locations exist
-    all_offices = OfficeLocation.objects.filter(latitude__isnull=False, longitude__isnull=False)
-    print(f"DEBUG: Found {all_offices.count()} offices with coordinates")
-    for office in all_offices:
-        print(f"DEBUG: Office {office.id} - {office.company.name} at {office.latitude}, {office.longitude}")
+    # Get user's commute preferences if they exist
+    user_lat = None
+    user_lng = None
+    user_radius = None
+    user_location_address = None
     
-    # Debug: Check what jobs exist
-    all_jobs = Job.objects.filter(status=Job.Status.PUBLISHED)
-    print(f"DEBUG: Found {all_jobs.count()} published jobs")
-    for job in all_jobs:
-        print(f"DEBUG: Job {job.id} - {job.title} at office {job.office_location_id}")
+    if request.user.is_authenticated and hasattr(request.user, 'profile'):
+        profile = request.user.profile
+        if profile.preferred_location_lat and profile.preferred_location_lng:
+            user_lat = float(profile.preferred_location_lat)
+            user_lng = float(profile.preferred_location_lng)
+            user_radius = profile.commute_radius
+            user_location_address = profile.preferred_location_address
     
     # Get all office locations with coordinates that have published jobs
     office_locations = OfficeLocation.objects.filter(
@@ -359,12 +389,21 @@ def job_map(request):
         job_count=Count('job', filter=Q(job__status=Job.Status.PUBLISHED))
     ).select_related('company').distinct()
     
-    print(f"DEBUG: Found {office_locations.count()} offices with published jobs")
-    
     # Prepare data for JavaScript
     office_data = []
-    print(f"DEBUG: Processing {len(office_locations)} offices for map")
     for office in office_locations:
+        # Calculate distance if user has preferred location
+        distance_from_user = None
+        within_radius = True  # Default to showing all offices
+        
+        if user_lat and user_lng and user_radius:
+            distance_from_user = haversine(user_lat, user_lng, float(office.latitude), float(office.longitude))
+            within_radius = distance_from_user <= user_radius
+        
+        # Only include offices within user's commute radius (if set)
+        if not within_radius:
+            continue
+        
         # Get all published jobs at this office
         jobs_at_office = Job.objects.filter(
             office_location=office,
@@ -388,7 +427,8 @@ def job_map(request):
             'country': office.country,
             'latitude': float(office.latitude),
             'longitude': float(office.longitude),
-            'job_count': office.job_count,
+            'job_count': len(jobs_at_office),
+            'distance_from_user': round(distance_from_user, 1) if distance_from_user else None,
             'jobs': [
                 {
                     'id': job.id,
@@ -406,33 +446,27 @@ def job_map(request):
             ]
         }
         office_data.append(office_info)
-        print(f"DEBUG: Added office {office.id} ({office.company.name}) with {len(jobs_at_office)} jobs")
     
     context = {
         'template_data': {
             'title': 'Jobs Map',
             'office_data': json.dumps(office_data),
             'GOOGLE_MAPS_API_KEY': settings.GOOGLE_MAPS_API_KEY,
+            'user_location': {
+                'lat': user_lat,
+                'lng': user_lng,
+                'radius': user_radius,
+                'address': user_location_address
+            } if user_lat and user_lng else None
         }
     }
     
     return render(request, 'jobs/job_map.html', context)
 
-# this is for job map filtering by distance
-
-def haversine(lat1, lon1, lat2, lon2):
-    """Calculate the distance (miles) between two lat/lon points."""
-    R = 3958.8  # Radius of Earth in miles
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return R * c
 
 @csrf_exempt
 def filter_by_distance(request):
-    """Return jobs within a given distance of the user’s current location."""
+    """Return jobs within a given distance of the user's current location."""
     try:
         lat = float(request.GET.get('lat'))
         lng = float(request.GET.get('lng'))
@@ -440,19 +474,33 @@ def filter_by_distance(request):
     except (TypeError, ValueError):
         return JsonResponse({'error': 'Invalid coordinates'}, status=400)
 
-    jobs = Job.objects.all()
-    filtered_jobs = []
-
-    for job in jobs:
-        dist = haversine(lat, lng, job.latitude, job.longitude)
+    # Get all office locations with published jobs
+    office_locations = OfficeLocation.objects.filter(
+        latitude__isnull=False,
+        longitude__isnull=False,
+        job__status=Job.Status.PUBLISHED
+    ).select_related('company').distinct()
+    
+    filtered_offices = []
+    for office in office_locations:
+        dist = haversine(lat, lng, float(office.latitude), float(office.longitude))
         if dist <= max_distance:
-            filtered_jobs.append({
-                'id': job.id,
-                'title': job.title,
-                'company': job.company,
-                'latitude': job.latitude,
-                'longitude': job.longitude,
+            jobs_at_office = Job.objects.filter(
+                office_location=office,
+                status=Job.Status.PUBLISHED
+            )
+            
+            filtered_offices.append({
+                'id': office.id,
+                'company_name': office.company.name,
+                'address': office.address,
+                'city': office.city,
+                'state': office.state,
+                'country': office.country,
+                'latitude': float(office.latitude),
+                'longitude': float(office.longitude),
                 'distance': round(dist, 2),
+                'job_count': jobs_at_office.count()
             })
 
-    return JsonResponse({'jobs': filtered_jobs})
+    return JsonResponse({'offices': filtered_offices})
