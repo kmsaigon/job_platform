@@ -19,6 +19,13 @@ urlpatterns = [
     path('application/<int:application_id>/withdraw/', views.withdraw_application, name='withdraw_application'),
     path('map/', views.job_map, name='job_map'),
     path('api/filter_by_distance/', views.filter_by_distance, name='filter_by_distance'),
+    
+    # Kanban and messaging features
+    path('recruiter/job/<int:job_id>/kanban/', views.kanban_board, name='kanban_board'),
+    path('recruiter/application/<int:application_id>/update-status/', views.update_application_status, name='update_application_status'),
+    path('recruiter/application/<int:application_id>/send-message/', views.send_message, name='send_message'),
+    path('recruiter/application/<int:application_id>/send-email/', views.send_email, name='send_email'),
+    path('application/<int:application_id>/messages/', views.view_messages, name='view_messages'),
+    path('application/<int:application_id>/reply/', views.reply_message, name='reply_message'),
+    path('application/<int:application_id>/emails/', views.view_emails, name='view_emails'),
 ]
-
-
