@@ -15,7 +15,104 @@
         {% endif %}
       </p>
     {% endif %}
-    
+    <!-- In your template where you want the map -->
+    {% if job.office_location and job.office_location.latitude and job.office_location.longitude %}
+    <div class="location-map-section">
+        <h3 class="section-title">
+            <i class="fas fa-map-marked-alt"></i> Office Location
+        </h3>
+        
+        <!-- Google Map Container -->
+        <div id="google-map" style="width: 100%; height: 400px; border-radius: 12px; border: 2px solid #e2e8f0;"></div>
+        
+        <!-- Location Info -->
+        <div class="location-info mt-3 p-3" style="background: #f8fafc; border-radius: 8px;">
+            <div class="d-flex align-items-start gap-3">
+                <i class="fas fa-location-dot" style="color: #667eea; font-size: 1.5rem;"></i>
+                <div>
+                    <div class="fw-bold">{{ job.office_location.address }}</div>
+                    <div class="text-muted">
+                        {{ job.office_location.city }}, {{ job.office_location.state }} {{ job.office_location.postal_code }}
+                    </div>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ job.office_location.latitude }},{{ job.office_location.longitude }}" 
+                      target="_blank" 
+                      class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="fas fa-route"></i> Get Directions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Maps Script -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ template_data.GOOGLE_MAPS_API_KEY }}&callback=initMap"></script>
+
+    <script>
+    function initMap() {
+        var location = {
+          lat: parseFloat("{{ job.office_location.latitude }}"),
+          lng: parseFloat("{{ job.office_location.longitude }}")
+          };
+        
+        var map = new google.maps.Map(document.getElementById('google-map'), {
+            zoom: 15,
+            center: location,
+            mapTypeControl: true,
+            streetViewControl: true,
+            fullscreenControl: true,
+            styles: [
+                {
+                    "featureType": "poi",
+                    "elementType": "labels",
+                    "stylers": [{"visibility": "off"}]
+                }
+            ]
+        });
+        
+        // Custom marker with company info
+        var marker = new google.maps.Marker({
+            position: location,
+            map: map,
+            title: '{{ job.company.name }}',
+            animation: google.maps.Animation.DROP,
+          
+        });
+        
+        // Info window
+        var infoWindow = new google.maps.InfoWindow({
+            content: `
+                <div style="padding: 12px; max-width: 250px;">
+                    <h4 style="margin: 0 0 8px 0; color: #667eea;">{{ job.company.name }}</h4>
+                    <p style="margin: 0 0 4px 0; font-weight: 600;">{{ job.title }}</p>
+                    <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
+                        {{ job.office_location.address }}<br>
+                        {{ job.office_location.city }}, {{ job.office_location.state }}
+                    </p>
+                </div>
+            `
+        });
+      }
+  marker.addListener('click', function() {
+      infoWindow.open(map, marker);
+  });
+        
+        // Open info window by default
+        infoWindow.open(map, marker);
+        
+        // Add circle around location
+        var circle = new google.maps.Circle({
+            strokeColor: '#667eea',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#667eea',
+            fillOpacity: 0.15,
+            map: map,
+            center: location,
+            radius: 300 // 300 meters
+        });
+    </script>
+    {% endif %}
+  
     <!-- Application Button -->
     {% if user.is_authenticated %}
       {% if has_applied %}

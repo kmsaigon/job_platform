@@ -27,6 +27,7 @@ class OfficeLocation(models.Model):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     country = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
 
@@ -37,4 +38,21 @@ class OfficeLocation(models.Model):
             return f"{self.company.name} - {location_str}"
         return f"{self.company.name} - {self.address}"
 
+    @property
+    def has_coordinates(self):
+        """Check if location has valid coordinates"""
+        return self.latitude is not None and self.longitude is not None
 
+    # ALSO ADD THIS PROPERTY (useful)
+    @property
+    def full_address(self):
+        """Return formatted full address"""
+        return f"{self.address}, {self.city}, {self.state} {self.postal_code}"
+
+    # AND THIS ONE (useful for maps)
+    @property
+    def google_maps_url(self):
+        """Return Google Maps URL for this location"""
+        if self.has_coordinates:
+            return f"https://www.google.com/maps/search/?api=1&query={self.latitude},{self.longitude}"
+        return None

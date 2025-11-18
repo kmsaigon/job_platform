@@ -67,6 +67,19 @@ class JobPublicDetailView(DetailView):
                     job=self.object,
                     applicant=self.request.user
                 )
+
+        if self.object.office_location:
+            context['has_location'] = self.object.office_location.has_coordinates
+            context['location_json'] = {
+                'lat': float(self.object.office_location.latitude) if self.object.office_location.latitude else None,
+                'lng': float(self.object.office_location.longitude) if self.object.office_location.longitude else None,
+                'address': self.object.office_location.full_address,
+                'company': self.object.company.name,
+            }
+
+        from django.conf import settings
+        context['GOOGLE_MAPS_API_KEY'] = getattr(settings, 'GOOGLE_MAPS_API_KEY', '')
+        
         return context
 
 
