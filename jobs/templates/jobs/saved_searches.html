@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Saved Candidate Searches - Job Search Platform{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+<style>
+    .saved-search-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s ease;
+    }
+    
+    .saved-search-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .search-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+    }
+    
+    .search-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .search-meta {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin: 5px 0;
+    }
+    
+    .notification-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 10px;
+    }
+    
+    .notification-enabled {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .notification-disabled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .search-params {
+        margin: 15px 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .param-item {
+        margin: 5px 0;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+    
+    .param-label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .search-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        color: #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-bookmark text-primary me-2"></i>
+                    Saved Candidate Searches
+                </h1>
+                <a href="{% url 'jobs:candidate_search' %}" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>
+                    New Search
+                </a>
+            </div>
+            
+            {% if saved_searches %}
+                <div class="saved-searches-list">
+                    {% for search in saved_searches %}
+                        <div class="saved-search-card">
+                            <div class="search-header">
+                                <div>
+                                    <h3 class="search-name">
+                                        {{ search.name }}
+                                        <span class="notification-badge {% if search.notifications_enabled %}notification-enabled{% else %}notification-disabled{% endif %}">
+                                            <i class="fas fa-{% if search.notifications_enabled %}bell{% else %}bell-slash{% endif %} me-1"></i>
+                                            Notifications {% if search.notifications_enabled %}On{% else %}Off{% endif %}
+                                        </span>
+                                    </h3>
+                                    <div class="search-meta">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        Created: {{ search.created_at|date:"M d, Y" }}
+                                        {% if search.last_checked_at %}
+                                            | Last checked: {{ search.last_checked_at|date:"M d, Y" }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="search-params">
+                                {% if search.skills %}
+                                    <div class="param-item">
+                                        <span class="param-label">Skills:</span> {{ search.skills }}
+                                    </div>
+                                {% endif %}
+                                {% if search.location %}
+                                    <div class="param-item">
+                                        <span class="param-label">Location:</span> {{ search.location }}
+                                        {% if search.distance_radius %}
+                                            (within {{ search.distance_radius }} miles)
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                                {% if search.experience %}
+                                    <div class="param-item">
+                                        <span class="param-label">Experience:</span> {{ search.experience }}
+                                    </div>
+                                {% endif %}
+                                <div class="param-item">
+                                    <span class="param-label">Sort by:</span> 
+                                    {% if search.sort_by == 'skills_match' %}Skills Match
+                                    {% elif search.sort_by == 'distance' %}Distance
+                                    {% elif search.sort_by == 'recent' %}Most Recent
+                                    {% elif search.sort_by == 'name' %}Name A-Z
+                                    {% else %}{{ search.sort_by|title }}{% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="search-actions">
+                                <a href="{% url 'jobs:run_saved_search' search.id %}" class="btn btn-primary">
+                                    <i class="fas fa-play me-1"></i>
+                                    Run Search
+                                </a>
+                                <form method="post" action="{% url 'jobs:toggle_search_notifications' search.id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-{% if search.notifications_enabled %}warning{% else %}success{% endif %}">
+                                        <i class="fas fa-{% if search.notifications_enabled %}bell-slash{% else %}bell{% endif %} me-1"></i>
+                                        {% if search.notifications_enabled %}Disable{% else %}Enable{% endif %} Notifications
+                                    </button>
+                                </form>
+                                <a href="{% url 'jobs:delete_saved_search' search.id %}" class="btn btn-danger">
+                                    <i class="fas fa-trash me-1"></i>
+                                    Delete
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-bookmark"></i>
+                    <h3>No saved searches yet</h3>
+                    <p>Save your candidate searches to quickly access them later and get notified about new matches.</p>
+                    <a href="{% url 'jobs:candidate_search' %}" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i>
+                        Start a Search
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

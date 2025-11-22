@@ -28,6 +28,13 @@ urlpatterns = [
     path('application/<int:application_id>/messages/', views.view_messages, name='view_messages'),
     path('application/<int:application_id>/reply/', views.reply_message, name='reply_message'),
     path('application/<int:application_id>/emails/', views.view_emails, name='view_emails'),
+    
+    # Saved candidate searches
+    path('recruiter/candidates/save/', views.save_candidate_search, name='save_search'),
+    path('recruiter/candidates/saved/', views.saved_searches, name='saved_searches'),
+    path('recruiter/candidates/saved/<int:search_id>/run/', views.run_saved_search, name='run_saved_search'),
+    path('recruiter/candidates/saved/<int:search_id>/delete/', views.delete_saved_search, name='delete_saved_search'),
+    path('recruiter/candidates/saved/<int:search_id>/toggle-notifications/', views.toggle_search_notifications, name='toggle_search_notifications'),
 ]
 
 

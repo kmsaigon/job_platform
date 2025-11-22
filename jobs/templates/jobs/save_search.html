@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Save Candidate Search - Job Search Platform{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+<style>
+    .save-search-form {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 30px;
+        margin: 30px auto;
+        max-width: 600px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .search-preview {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #007bff;
+    }
+    
+    .search-preview h5 {
+        color: #495057;
+        margin-bottom: 15px;
+    }
+    
+    .search-param {
+        margin: 8px 0;
+        color: #6c757d;
+    }
+    
+    .search-param strong {
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-bookmark text-primary me-2"></i>
+                Save Candidate Search
+            </h1>
+            
+            <div class="save-search-form">
+                <!-- Search Preview -->
+                <div class="search-preview">
+                    <h5><i class="fas fa-search me-2"></i>Search Preview</h5>
+                    {% if request.GET.skills or request.GET.location or request.GET.experience %}
+                        {% if request.GET.skills %}
+                            <div class="search-param">
+                                <strong>Skills:</strong> {{ request.GET.skills }}
+                            </div>
+                        {% endif %}
+                        {% if request.GET.location %}
+                            <div class="search-param">
+                                <strong>Location:</strong> {{ request.GET.location }}
+                            </div>
+                        {% endif %}
+                        {% if request.GET.experience %}
+                            <div class="search-param">
+                                <strong>Experience:</strong> {{ request.GET.experience }}
+                            </div>
+                        {% endif %}
+                        {% if request.GET.distance_radius %}
+                            <div class="search-param">
+                                <strong>Radius:</strong> {{ request.GET.distance_radius }} miles
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted">No search criteria specified.</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Save Form -->
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">
+                            {{ form.name.label }}
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.help_text %}
+                            <div class="form-text">{{ form.name.help_text }}</div>
+                        {% endif %}
+                        {% if form.name.errors %}
+                            <div class="text-danger">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        {{ form.notifications_enabled }}
+                        <label class="form-check-label" for="{{ form.notifications_enabled.id_for_label }}">
+                            {{ form.notifications_enabled.label }}
+                        </label>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            You'll receive email notifications when new candidates match this search.
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>
+                            Save Search
+                        </button>
+                        <a href="{% url 'jobs:candidate_search' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

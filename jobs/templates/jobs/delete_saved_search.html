@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Saved Search - Job Search Platform{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+<style>
+    .delete-confirmation {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 30px;
+        margin: 30px auto;
+        max-width: 600px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .warning-box {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-trash text-danger me-2"></i>
+                Delete Saved Search
+            </h1>
+            
+            <div class="delete-confirmation">
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    <strong>Are you sure you want to delete this saved search?</strong>
+                </div>
+                
+                <h3>{{ saved_search.name }}</h3>
+                <p class="text-muted">This action cannot be undone.</p>
+                
+                <div class="mt-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-1"></i>
+                            Yes, Delete
+                        </button>
+                        <a href="{% url 'jobs:saved_searches' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>
+                            Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

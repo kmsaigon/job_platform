@@ -131,3 +131,33 @@ class ApplicationEmail(models.Model):
 
     def __str__(self):
         return f"Email for {self.application}"
+
+
+class SavedCandidateSearch(models.Model):
+    """Saved candidate searches for recruiters with notification support"""
+    recruiter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='saved_candidate_searches')
+    name = models.CharField(max_length=200, help_text='A descriptive name for this search')
+    
+    # Search parameters
+    skills = models.CharField(max_length=500, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    experience = models.CharField(max_length=500, blank=True)
+    search_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    search_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    distance_radius = models.CharField(max_length=10, blank=True)
+    sort_by = models.CharField(max_length=20, default='skills_match')
+    
+    # Notification settings
+    notifications_enabled = models.BooleanField(default=True, help_text='Get notified when new candidates match this search')
+    last_checked_at = models.DateTimeField(null=True, blank=True, help_text='Last time this search was checked for new matches')
+    last_notified_at = models.DateTimeField(null=True, blank=True, help_text='Last time a notification was sent for this search')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name_plural = 'Saved Candidate Searches'
+    
+    def __str__(self):
+        return f"{self.name} ({self.recruiter.username})"

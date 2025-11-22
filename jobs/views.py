@@ -10,8 +10,8 @@ from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
-from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm, MessageForm, ApplicationEmailForm
-from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail
+from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm, MessageForm, ApplicationEmailForm, SaveSearchForm
+from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail, SavedCandidateSearch
 from profiles.models import Profile
 from companies.models import OfficeLocation
 from django.http import JsonResponse
@@ -980,3 +980,138 @@ def view_emails(request, application_id):
         'emails': emails
     }
     return render(request, 'jobs/view_emails.html', context)
+
+
+# Saved Candidate Search Views
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def save_candidate_search(request):
+    """Save the current candidate search"""
+    if request.method == 'POST':
+        form = SaveSearchForm(request.POST)
+        if form.is_valid():
+            # Get search parameters from GET (they should be in the URL)
+            search_params = request.GET.copy()
+            
+            # Parse search_lat and search_lng as Decimal if present
+            search_lat = None
+            search_lng = None
+            if search_params.get('search_lat'):
+                try:
+                    from decimal import Decimal
+                    search_lat = Decimal(str(search_params.get('search_lat')))
+                except (ValueError, TypeError):
+                    pass
+            if search_params.get('search_lng'):
+                try:
+                    from decimal import Decimal
+                    search_lng = Decimal(str(search_params.get('search_lng')))
+                except (ValueError, TypeError):
+                    pass
+            
+            # Create saved search
+            saved_search = SavedCandidateSearch.objects.create(
+                recruiter=request.user,
+                name=form.cleaned_data['name'],
+                skills=search_params.get('skills', ''),
+                location=search_params.get('location', ''),
+                experience=search_params.get('experience', ''),
+                search_lat=search_lat,
+                search_lng=search_lng,
+                distance_radius=search_params.get('distance_radius', ''),
+                sort_by=search_params.get('sort_by', 'skills_match'),
+                notifications_enabled=form.cleaned_data.get('notifications_enabled', True)
+            )
+            messages.success(request, f'Search "{saved_search.name}" saved successfully!')
+            return redirect('jobs:saved_searches')
+        else:
+            messages.error(request, 'Please provide a name for the search.')
+    
+    # If GET request, show form with current search parameters
+    form = SaveSearchForm()
+    context = {
+        'form': form,
+        'search_params': request.GET.urlencode()
+    }
+    return render(request, 'jobs/save_search.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def saved_searches(request):
+    """List all saved searches for the current recruiter"""
+    saved_searches_list = SavedCandidateSearch.objects.filter(
+        recruiter=request.user
+    ).order_by('-updated_at')
+    
+    context = {
+        'saved_searches': saved_searches_list
+    }
+    return render(request, 'jobs/saved_searches.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def run_saved_search(request, search_id):
+    """Run a saved search by redirecting to candidate search with saved parameters"""
+    saved_search = get_object_or_404(SavedCandidateSearch, pk=search_id, recruiter=request.user)
+    
+    # Build query string from saved search parameters
+    params = {}
+    if saved_search.skills:
+        params['skills'] = saved_search.skills
+    if saved_search.location:
+        params['location'] = saved_search.location
+    if saved_search.experience:
+        params['experience'] = saved_search.experience
+    if saved_search.search_lat:
+        params['search_lat'] = str(saved_search.search_lat)
+    if saved_search.search_lng:
+        params['search_lng'] = str(saved_search.search_lng)
+    if saved_search.distance_radius:
+        params['distance_radius'] = saved_search.distance_radius
+    if saved_search.sort_by:
+        params['sort_by'] = saved_search.sort_by
+    
+    # Update last_checked_at
+    saved_search.last_checked_at = timezone.now()
+    saved_search.save(update_fields=['last_checked_at'])
+    
+    # Redirect to candidate search with parameters
+    from urllib.parse import urlencode
+    query_string = urlencode(params)
+    return redirect(f"{reverse('jobs:candidate_search')}?{query_string}")
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def delete_saved_search(request, search_id):
+    """Delete a saved search"""
+    saved_search = get_object_or_404(SavedCandidateSearch, pk=search_id, recruiter=request.user)
+    
+    if request.method == 'POST':
+        search_name = saved_search.name
+        saved_search.delete()
+        messages.success(request, f'Search "{search_name}" deleted successfully.')
+        return redirect('jobs:saved_searches')
+    
+    context = {
+        'saved_search': saved_search
+    }
+    return render(request, 'jobs/delete_saved_search.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def toggle_search_notifications(request, search_id):
+    """Toggle notifications for a saved search"""
+    saved_search = get_object_or_404(SavedCandidateSearch, pk=search_id, recruiter=request.user)
+    
+    if request.method == 'POST':
+        saved_search.notifications_enabled = not saved_search.notifications_enabled
+        saved_search.save(update_fields=['notifications_enabled'])
+        
+        status = 'enabled' if saved_search.notifications_enabled else 'disabled'
+        messages.success(request, f'Notifications {status} for "{saved_search.name}".')
+    
+    return redirect('jobs:saved_searches')

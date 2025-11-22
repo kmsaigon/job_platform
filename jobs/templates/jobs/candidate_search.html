@@ -254,9 +254,19 @@
                                 <i class="fas fa-search me-1"></i>
                                 Search Candidates
                             </button>
-                            <a href="{% url 'jobs:candidate_search' %}" class="btn btn-outline-secondary">
+                            <a href="{% url 'jobs:candidate_search' %}" class="btn btn-outline-secondary me-2">
                                 <i class="fas fa-times me-1"></i>
                                 Clear
+                            </a>
+                            {% if request.GET.skills or request.GET.location or request.GET.experience %}
+                            <a href="{% url 'jobs:save_search' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                                <i class="fas fa-bookmark me-1"></i>
+                                Save Search
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'jobs:saved_searches' %}" class="btn btn-outline-info ms-2">
+                                <i class="fas fa-list me-1"></i>
+                                Saved Searches
                             </a>
                         </div>
                     </div>
@@ -276,6 +286,14 @@
                         matching your criteria
                     {% endif %}
                 </div>
+                {% if request.GET.skills or request.GET.location or request.GET.experience %}
+                <div>
+                    <a href="{% url 'jobs:save_search' %}?{{ request.GET.urlencode }}" class="btn btn-sm btn-success">
+                        <i class="fas fa-bookmark me-1"></i>
+                        Save This Search
+                    </a>
+                </div>
+                {% endif %}
             </div>
             
             <!-- Search Results -->

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail
+from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail, SavedCandidateSearch
 
 
 @admin.register(Job)
@@ -50,3 +50,26 @@ class ApplicationEmailAdmin(admin.ModelAdmin):
     list_filter = ('sent_at',)
     search_fields = ('application__applicant__username', 'subject', 'message')
     readonly_fields = ['sent_at']
+
+
+@admin.register(SavedCandidateSearch)
+class SavedCandidateSearchAdmin(admin.ModelAdmin):
+    list_display = ('name', 'recruiter', 'notifications_enabled', 'last_checked_at', 'last_notified_at', 'created_at')
+    list_filter = ('notifications_enabled', 'created_at', 'last_checked_at')
+    search_fields = ('name', 'recruiter__username', 'recruiter__email', 'skills', 'location')
+    readonly_fields = ['created_at', 'updated_at', 'last_checked_at', 'last_notified_at']
+    
+    fieldsets = (
+        ('Search Info', {
+            'fields': ('recruiter', 'name')
+        }),
+        ('Search Criteria', {
+            'fields': ('skills', 'location', 'experience', 'search_lat', 'search_lng', 'distance_radius', 'sort_by')
+        }),
+        ('Notifications', {
+            'fields': ('notifications_enabled', 'last_checked_at', 'last_notified_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Job, Application, Message, ApplicationEmail
+from .models import Job, Application, Message, ApplicationEmail, SavedCandidateSearch
 
 
 class JobForm(forms.ModelForm):
@@ -264,3 +264,24 @@ class ApplicationEmailForm(forms.ModelForm):
             'subject': 'Subject',
             'message': 'Message'
         }
+
+
+class SaveSearchForm(forms.Form):
+    """Form for saving a candidate search"""
+    name = forms.CharField(
+        max_length=200,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g., Python Developers in Atlanta',
+            'required': True
+        }),
+        label='Search Name',
+        help_text='Give this search a descriptive name'
+    )
+    notifications_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        label='Enable notifications for new matches'
+    )
