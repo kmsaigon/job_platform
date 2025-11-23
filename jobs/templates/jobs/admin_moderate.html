@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2><i class="fas fa-shield-alt me-2"></i>Job Moderation</h2>
+      <a class="btn btn-outline-secondary" href="{% url 'jobs:admin_export' %}">
+        <i class="fas fa-download me-2"></i>Export Data
+      </a>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filters</h5>
+      </div>
+      <div class="card-body">
+        <form method="get" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Status</label>
+            {{ form.status }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Company</label>
+            {{ form.company }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Posted By</label>
+            {{ form.posted_by }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Search</label>
+            {{ form.search }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">From Date</label>
+            {{ form.date_from }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">To Date</label>
+            {{ form.date_to }}
+          </div>
+          <div class="col-md-6 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary me-2">
+              <i class="fas fa-search me-2"></i>Apply Filters
+            </button>
+            <a href="{% url 'jobs:admin_moderate' %}" class="btn btn-outline-secondary">
+              <i class="fas fa-times me-2"></i>Clear
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bulk Actions Form -->
+    <form method="post" id="bulkActionForm" onsubmit="return confirmBulkAction()">
+      {% csrf_token %}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Jobs ({{ jobs.paginator.count }} total)</h5>
+          <div class="btn-group">
+            <button type="submit" name="action" value="publish" class="btn btn-sm btn-success">
+              <i class="fas fa-check me-1"></i>Publish Selected
+            </button>
+            <button type="submit" name="action" value="unpublish" class="btn btn-sm btn-warning">
+              <i class="fas fa-eye-slash me-1"></i>Unpublish Selected
+            </button>
+            <button type="submit" name="action" value="close" class="btn btn-sm btn-info">
+              <i class="fas fa-lock me-1"></i>Close Selected
+            </button>
+            <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger">
+              <i class="fas fa-trash me-1"></i>Delete Selected
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th width="40">
+                    <input type="checkbox" id="selectAll" onchange="toggleAll(this)">
+                  </th>
+                  <th>Title</th>
+                  <th>Company</th>
+                  <th>Status</th>
+                  <th>Posted By</th>
+                  <th>Created</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for job in jobs %}
+                  <tr>
+                    <td>
+                      <input type="checkbox" name="job_ids" value="{{ job.id }}" class="job-checkbox">
+                    </td>
+                    <td>
+                      <strong>{{ job.title }}</strong>
+                    </td>
+                    <td>{{ job.company.name }}</td>
+                    <td>
+                      {% if job.status == 'published' %}
+                        <span class="badge bg-success">{{ job.get_status_display }}</span>
+                      {% elif job.status == 'draft' %}
+                        <span class="badge bg-secondary">{{ job.get_status_display }}</span>
+                      {% elif job.status == 'closed' %}
+                        <span class="badge bg-danger">{{ job.get_status_display }}</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ job.posted_by.username }}</td>
+                    <td>{{ job.created_at|date:"M d, Y" }}</td>
+                    <td>{{ job.updated_at|date:"M d, Y" }}</td>
+                    <td>
+                      <a href="{% url 'jobs:public_detail' job.pk job.slug %}" class="btn btn-sm btn-outline-primary" target="_blank">
+                        <i class="fas fa-eye"></i>
+                      </a>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                      No jobs found matching your filters.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <!-- Pagination -->
+    {% if jobs.has_other_pages %}
+      <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+          {% if jobs.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page=1{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.company %}&company={{ request.GET.company }}{% endif %}{% if request.GET.posted_by %}&posted_by={{ request.GET.posted_by }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">First</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="?page={{ jobs.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.company %}&company={{ request.GET.company }}{% endif %}{% if request.GET.posted_by %}&posted_by={{ request.GET.posted_by }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">Previous</a>
+            </li>
+          {% endif %}
+          
+          <li class="page-item active">
+            <span class="page-link">Page {{ jobs.number }} of {{ jobs.paginator.num_pages }}</span>
+          </li>
+          
+          {% if jobs.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ jobs.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.company %}&company={{ request.GET.company }}{% endif %}{% if request.GET.posted_by %}&posted_by={{ request.GET.posted_by }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">Next</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="?page={{ jobs.paginator.num_pages }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.company %}&company={{ request.GET.company }}{% endif %}{% if request.GET.posted_by %}&posted_by={{ request.GET.posted_by }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">Last</a>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function toggleAll(checkbox) {
+  const checkboxes = document.querySelectorAll('.job-checkbox');
+  checkboxes.forEach(cb => cb.checked = checkbox.checked);
+}
+
+function confirmBulkAction() {
+  const checked = document.querySelectorAll('.job-checkbox:checked');
+  if (checked.length === 0) {
+    alert('Please select at least one job.');
+    return false;
+  }
+  return true;
+}
+
+// Confirm delete action
+document.getElementById('bulkActionForm').addEventListener('submit', function(e) {
+  const action = e.submitter.value;
+  if (action === 'delete') {
+    const checked = document.querySelectorAll('.job-checkbox:checked');
+    if (!confirm(`Are you sure you want to permanently delete ${checked.length} job(s)? This action cannot be undone.`)) {
+      e.preventDefault();
+      return false;
+    }
+  }
+});
+</script>
+{% endblock %}
+

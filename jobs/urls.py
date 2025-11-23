@@ -36,4 +36,8 @@ urlpatterns = [
     path('recruiter/candidates/saved/<int:search_id>/run/', views.run_saved_search, name='run_saved_search'),
     path('recruiter/candidates/saved/<int:search_id>/delete/', views.delete_saved_search, name='delete_saved_search'),
     path('recruiter/candidates/saved/<int:search_id>/toggle-notifications/', views.toggle_search_notifications, name='toggle_search_notifications'),
+    
+    # Admin features
+    path('admin/moderate/', views.admin_moderate_jobs, name='admin_moderate'),
+    path('admin/export/', views.admin_export_csv, name='admin_export'),
 ]

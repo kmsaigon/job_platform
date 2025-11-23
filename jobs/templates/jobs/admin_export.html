@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="fas fa-download me-2"></i>Export Data to CSV</h2>
+          <a class="btn btn-outline-secondary" href="{% url 'jobs:admin_moderate' %}">
+            <i class="fas fa-shield-alt me-2"></i>Job Moderation
+          </a>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-file-csv me-2"></i>Export Configuration</h5>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              {% csrf_token %}
+              
+              <div class="mb-3">
+                <label for="{{ form.export_type.id_for_label }}" class="form-label">
+                  <strong>Export Type</strong> <span class="text-danger">*</span>
+                </label>
+                {{ form.export_type }}
+                <small class="form-text text-muted">Select the type of data you want to export</small>
+              </div>
+
+              <hr class="my-4">
+
+              <h6 class="mb-3"><i class="fas fa-filter me-2"></i>Filter Options (Optional)</h6>
+
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label for="{{ form.date_from.id_for_label }}" class="form-label">From Date</label>
+                  {{ form.date_from }}
+                </div>
+                <div class="col-md-6">
+                  <label for="{{ form.date_to.id_for_label }}" class="form-label">To Date</label>
+                  {{ form.date_to }}
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label for="{{ form.status_filter.id_for_label }}" class="form-label">Status Filter</label>
+                  {{ form.status_filter }}
+                  <small class="form-text text-muted">Applies to Jobs and Applications</small>
+                </div>
+                <div class="col-md-6">
+                  <label for="{{ form.company_filter.id_for_label }}" class="form-label">Company Filter</label>
+                  {{ form.company_filter }}
+                  <small class="form-text text-muted">Applies to Jobs and Applications</small>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="{{ form.group_filter.id_for_label }}" class="form-label">User Group Filter</label>
+                {{ form.group_filter }}
+                <small class="form-text text-muted">Applies to Users export only</small>
+              </div>
+
+              <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Note:</strong> The exported file will be named automatically with a timestamp. 
+                All filters are optional - leave them empty to export all data of the selected type.
+              </div>
+
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-lg">
+                  <i class="fas fa-download me-2"></i>Export to CSV
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="card mt-4">
+          <div class="card-header">
+            <h6 class="mb-0"><i class="fas fa-question-circle me-2"></i>Export Types Explained</h6>
+          </div>
+          <div class="card-body">
+            <ul class="list-unstyled">
+              <li class="mb-2">
+                <strong><i class="fas fa-users me-2 text-primary"></i>Users:</strong>
+                Exports user accounts with profile information, groups, and statistics
+              </li>
+              <li class="mb-2">
+                <strong><i class="fas fa-briefcase me-2 text-success"></i>Jobs:</strong>
+                Exports all job postings with company information and status
+              </li>
+              <li class="mb-2">
+                <strong><i class="fas fa-file-alt me-2 text-info"></i>Applications:</strong>
+                Exports job applications with applicant and job details
+              </li>
+              <li class="mb-2">
+                <strong><i class="fas fa-envelope me-2 text-warning"></i>Messages:</strong>
+                Exports in-platform messages between users
+              </li>
+              <li class="mb-2">
+                <strong><i class="fas fa-database me-2 text-danger"></i>All Data:</strong>
+                Exports all data types in a single CSV file with separate sections
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
