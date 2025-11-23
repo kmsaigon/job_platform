@@ -285,3 +285,119 @@ class SaveSearchForm(forms.Form):
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         label='Enable notifications for new matches'
     )
+
+
+class JobModerationForm(forms.Form):
+    """Form for filtering jobs in admin moderation page"""
+    status = forms.ChoiceField(
+        choices=[('', 'All Statuses')] + list(Job.Status.choices),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    company = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        empty_label='All Companies'
+    )
+    posted_by = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        empty_label='All Users'
+    )
+    search = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Search by title or description...'
+        })
+    )
+    date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        }),
+        label='From Date'
+    )
+    date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        }),
+        label='To Date'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        from companies.models import Company
+        from django.contrib.auth import get_user_model
+        super().__init__(*args, **kwargs)
+        self.fields['company'].queryset = Company.objects.all().order_by('name')
+        self.fields['posted_by'].queryset = get_user_model().objects.filter(
+            posted_jobs__isnull=False
+        ).distinct().order_by('username')
+
+
+class CSVExportForm(forms.Form):
+    """Form for CSV export with filtering options"""
+    EXPORT_CHOICES = [
+        ('users', 'Users'),
+        ('jobs', 'Jobs'),
+        ('applications', 'Applications'),
+        ('messages', 'Messages'),
+        ('all', 'All Data (Combined)'),
+    ]
+    
+    export_type = forms.ChoiceField(
+        choices=EXPORT_CHOICES,
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='Export Type'
+    )
+    date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        }),
+        label='From Date'
+    )
+    date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        }),
+        label='To Date'
+    )
+    status_filter = forms.ChoiceField(
+        choices=[('', 'All Statuses')] + list(Job.Status.choices) + list(Application.Status.choices),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='Status Filter'
+    )
+    company_filter = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        empty_label='All Companies',
+        label='Company Filter'
+    )
+    group_filter = forms.ChoiceField(
+        choices=[('', 'All Groups')] + [
+            ('admin', 'Admin'),
+            ('recruiter', 'Recruiter'),
+            ('job_seeker', 'Job Seeker'),
+        ],
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='User Group Filter'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        from companies.models import Company
+        super().__init__(*args, **kwargs)
+        self.fields['company_filter'].queryset = Company.objects.all().order_by('name')

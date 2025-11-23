@@ -11,7 +11,7 @@ from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
-from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm, MessageForm, ApplicationEmailForm, SaveSearchForm
+from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm, MessageForm, ApplicationEmailForm, SaveSearchForm, JobModerationForm, CSVExportForm
 from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail, SavedCandidateSearch
 from profiles.models import Profile
 from companies.models import OfficeLocation
@@ -1254,3 +1254,308 @@ def candidate_recommendations(request, job_id):
         'total_candidates': len(candidate_recommendations)
     }
     return render(request, 'jobs/candidate_recommendations.html', context)
+
+
+# Admin Moderation and Export Views
+@login_required
+@user_passes_test(is_admin)
+def admin_moderate_jobs(request):
+    """Admin page for moderating job posts with bulk actions"""
+    from companies.models import Company
+    
+    queryset = Job.objects.all().select_related('company', 'posted_by', 'office_location').order_by('-updated_at')
+    
+    # Handle bulk actions
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        job_ids = request.POST.getlist('job_ids')
+        
+        if action and job_ids:
+            jobs = Job.objects.filter(id__in=job_ids)
+            count = 0
+            
+            if action == 'delete':
+                for job in jobs:
+                    job.delete()
+                    count += 1
+                messages.success(request, f'Successfully deleted {count} job(s).')
+                
+            elif action == 'publish':
+                for job in jobs:
+                    if job.status != Job.Status.PUBLISHED:
+                        old_status = job.status
+                        job.status = Job.Status.PUBLISHED
+                        job.published_at = timezone.now()
+                        job.unpublished_at = None
+                        job.save(update_fields=['status', 'published_at', 'unpublished_at'])
+                        JobStatusHistory.objects.create(
+                            job=job,
+                            from_status=old_status,
+                            to_status=job.status,
+                            changed_by=request.user
+                        )
+                        count += 1
+                messages.success(request, f'Successfully published {count} job(s).')
+                
+            elif action == 'unpublish':
+                for job in jobs:
+                    if job.status != Job.Status.DRAFT:
+                        old_status = job.status
+                        job.status = Job.Status.DRAFT
+                        job.unpublished_at = timezone.now()
+                        job.save(update_fields=['status', 'unpublished_at'])
+                        JobStatusHistory.objects.create(
+                            job=job,
+                            from_status=old_status,
+                            to_status=job.status,
+                            changed_by=request.user
+                        )
+                        count += 1
+                messages.success(request, f'Successfully unpublished {count} job(s).')
+                
+            elif action == 'close':
+                for job in jobs:
+                    if job.status != Job.Status.CLOSED:
+                        old_status = job.status
+                        job.status = Job.Status.CLOSED
+                        job.save(update_fields=['status'])
+                        JobStatusHistory.objects.create(
+                            job=job,
+                            from_status=old_status,
+                            to_status=job.status,
+                            changed_by=request.user
+                        )
+                        count += 1
+                messages.success(request, f'Successfully closed {count} job(s).')
+            
+            return redirect('jobs:admin_moderate')
+    
+    # Apply filters
+    form = JobModerationForm(request.GET)
+    if form.is_valid():
+        status = form.cleaned_data.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        company = form.cleaned_data.get('company')
+        if company:
+            queryset = queryset.filter(company=company)
+        
+        posted_by = form.cleaned_data.get('posted_by')
+        if posted_by:
+            queryset = queryset.filter(posted_by=posted_by)
+        
+        search = form.cleaned_data.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(description__icontains=search)
+            )
+        
+        date_from = form.cleaned_data.get('date_from')
+        if date_from:
+            queryset = queryset.filter(created_at__gte=date_from)
+        
+        date_to = form.cleaned_data.get('date_to')
+        if date_to:
+            queryset = queryset.filter(created_at__lte=date_to)
+    
+    # Pagination
+    paginator = Paginator(queryset, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'jobs': page_obj,
+        'form': form,
+        'companies': Company.objects.all().order_by('name'),
+        'users': get_user_model().objects.filter(posted_jobs__isnull=False).distinct().order_by('username'),
+    }
+    return render(request, 'jobs/admin_moderate.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def admin_export_csv(request):
+    """Admin page for exporting data to CSV"""
+    from companies.models import Company
+    import csv
+    from django.http import HttpResponse
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        form = CSVExportForm(request.POST)
+        if form.is_valid():
+            export_type = form.cleaned_data['export_type']
+            date_from = form.cleaned_data.get('date_from')
+            date_to = form.cleaned_data.get('date_to')
+            status_filter = form.cleaned_data.get('status_filter')
+            company_filter = form.cleaned_data.get('company_filter')
+            group_filter = form.cleaned_data.get('group_filter')
+            
+            # Generate filename
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            filename = f'{export_type}_export_{timestamp}.csv'
+            
+            # Create HTTP response with CSV content type
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            writer = csv.writer(response)
+            
+            if export_type == 'users':
+                queryset = get_user_model().objects.all().select_related('profile')
+                if date_from:
+                    queryset = queryset.filter(date_joined__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(date_joined__lte=date_to)
+                if group_filter:
+                    queryset = queryset.filter(groups__name=group_filter)
+                
+                writer.writerow(['Username', 'Email', 'First Name', 'Last Name', 'Is Active', 'Is Superuser', 
+                                'Groups', 'Profile Name', 'Profile Headline', 'Date Joined', 'Jobs Posted', 'Applications'])
+                for user in queryset:
+                    groups = ', '.join([g.name for g in user.groups.all()])
+                    profile_name = user.profile.name if hasattr(user, 'profile') else ''
+                    profile_headline = user.profile.headline if hasattr(user, 'profile') else ''
+                    jobs_count = user.posted_jobs.count()
+                    apps_count = user.applications.count()
+                    writer.writerow([
+                        user.username, user.email, user.first_name, user.last_name,
+                        user.is_active, user.is_superuser, groups, profile_name,
+                        profile_headline, user.date_joined.strftime('%Y-%m-%d %H:%M:%S'),
+                        jobs_count, apps_count
+                    ])
+            
+            elif export_type == 'jobs':
+                queryset = Job.objects.all().select_related('company', 'posted_by', 'office_location')
+                if date_from:
+                    queryset = queryset.filter(created_at__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(created_at__lte=date_to)
+                if status_filter:
+                    queryset = queryset.filter(status=status_filter)
+                if company_filter:
+                    queryset = queryset.filter(company=company_filter)
+                
+                writer.writerow(['Title', 'Company', 'Status', 'Employment Type', 'Work Mode', 
+                                'Posted By', 'Location', 'Salary Min', 'Salary Max', 'Currency',
+                                'Created At', 'Published At', 'Applications Count'])
+                for job in queryset:
+                    location = f"{job.office_location.city}, {job.office_location.state}" if job.office_location else ''
+                    writer.writerow([
+                        job.title, job.company.name, job.get_status_display(),
+                        job.get_employment_type_display(), job.get_work_mode_display(),
+                        job.posted_by.username, location,
+                        job.salary_min or '', job.salary_max or '', job.currency,
+                        job.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        job.published_at.strftime('%Y-%m-%d %H:%M:%S') if job.published_at else '',
+                        job.applications.count()
+                    ])
+            
+            elif export_type == 'applications':
+                queryset = Application.objects.all().select_related('job', 'applicant', 'job__company')
+                if date_from:
+                    queryset = queryset.filter(applied_at__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(applied_at__lte=date_to)
+                if status_filter:
+                    queryset = queryset.filter(status=status_filter)
+                if company_filter:
+                    queryset = queryset.filter(job__company=company_filter)
+                
+                writer.writerow(['Applicant', 'Job Title', 'Company', 'Status', 'Applied At', 'Updated At'])
+                for app in queryset:
+                    writer.writerow([
+                        app.applicant.username, app.job.title, app.job.company.name,
+                        app.get_status_display(),
+                        app.applied_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        app.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+                    ])
+            
+            elif export_type == 'messages':
+                queryset = Message.objects.all().select_related('sender', 'receiver', 'application', 'application__job')
+                if date_from:
+                    queryset = queryset.filter(created_at__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(created_at__lte=date_to)
+                
+                writer.writerow(['Sender', 'Receiver', 'Job', 'Subject', 'Is Read', 'Created At'])
+                for msg in queryset:
+                    job_title = msg.application.job.title if msg.application else ''
+                    writer.writerow([
+                        msg.sender.username, msg.receiver.username, job_title,
+                        msg.subject, msg.is_read,
+                        msg.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    ])
+            
+            elif export_type == 'all':
+                # Export all data types in separate sections
+                # Users
+                writer.writerow(['=== USERS ==='])
+                writer.writerow(['Username', 'Email', 'Is Active', 'Is Superuser', 'Groups', 'Date Joined'])
+                users = get_user_model().objects.all()
+                if date_from:
+                    users = users.filter(date_joined__gte=date_from)
+                if date_to:
+                    users = users.filter(date_joined__lte=date_to)
+                if group_filter:
+                    users = users.filter(groups__name=group_filter)
+                for user in users:
+                    groups = ', '.join([g.name for g in user.groups.all()])
+                    writer.writerow([user.username, user.email, user.is_active, user.is_superuser, groups, 
+                                   user.date_joined.strftime('%Y-%m-%d %H:%M:%S')])
+                
+                writer.writerow([])
+                writer.writerow(['=== JOBS ==='])
+                writer.writerow(['Title', 'Company', 'Status', 'Posted By', 'Created At'])
+                jobs = Job.objects.all().select_related('company', 'posted_by')
+                if date_from:
+                    jobs = jobs.filter(created_at__gte=date_from)
+                if date_to:
+                    jobs = jobs.filter(created_at__lte=date_to)
+                if status_filter:
+                    jobs = jobs.filter(status=status_filter)
+                if company_filter:
+                    jobs = jobs.filter(company=company_filter)
+                for job in jobs:
+                    writer.writerow([job.title, job.company.name, job.get_status_display(), 
+                                    job.posted_by.username, job.created_at.strftime('%Y-%m-%d %H:%M:%S')])
+                
+                writer.writerow([])
+                writer.writerow(['=== APPLICATIONS ==='])
+                writer.writerow(['Applicant', 'Job Title', 'Company', 'Status', 'Applied At'])
+                apps = Application.objects.all().select_related('job', 'applicant', 'job__company')
+                if date_from:
+                    apps = apps.filter(applied_at__gte=date_from)
+                if date_to:
+                    apps = apps.filter(applied_at__lte=date_to)
+                if status_filter:
+                    apps = apps.filter(status=status_filter)
+                if company_filter:
+                    apps = apps.filter(job__company=company_filter)
+                for app in apps:
+                    writer.writerow([app.applicant.username, app.job.title, app.job.company.name,
+                                   app.get_status_display(), app.applied_at.strftime('%Y-%m-%d %H:%M:%S')])
+                
+                writer.writerow([])
+                writer.writerow(['=== MESSAGES ==='])
+                writer.writerow(['Sender', 'Receiver', 'Job', 'Subject', 'Created At'])
+                msgs = Message.objects.all().select_related('sender', 'receiver', 'application', 'application__job')
+                if date_from:
+                    msgs = msgs.filter(created_at__gte=date_from)
+                if date_to:
+                    msgs = msgs.filter(created_at__lte=date_to)
+                for msg in msgs:
+                    job_title = msg.application.job.title if msg.application else ''
+                    writer.writerow([msg.sender.username, msg.receiver.username, job_title,
+                                   msg.subject, msg.created_at.strftime('%Y-%m-%d %H:%M:%S')])
+            
+            return response
+    else:
+        form = CSVExportForm()
+    
+    context = {
+        'form': form,
+        'companies': Company.objects.all().order_by('name'),
+    }
+    return render(request, 'jobs/admin_export.html', context)

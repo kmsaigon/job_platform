@@ -46,6 +46,13 @@
        <div class="collapse navbar-collapse"
             id="navbarNavAltMarkup">
          <div class="navbar-nav ms-auto navbar-ml">
+           {% if user.is_authenticated %}
+             {% load account_tags %}
+             {% if user.is_superuser or user|has_group:'admin' %}
+               <a class="nav-link" href="{% url 'jobs:admin_moderate' %}">Admin Dashboard</a>
+               <span class="nav-separator"></span>
+             {% endif %}
+           {% endif %}
            <a class="nav-link" href="{% url 'home.about' %}">About</a>
            <span class="nav-separator"></span>
            {% if user.is_authenticated %}
