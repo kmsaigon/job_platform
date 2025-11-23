@@ -9,10 +9,19 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <strong>Job:</strong> {{ application.job.title }}<br>
-                        <strong>Candidate:</strong> {{ application.applicant.username }}
-                        {% if application.applicant.profile %}
-                            ({{ application.applicant.profile.name }})
+                        {% if is_direct_message %}
+                            <strong>Job:</strong> {{ job.title }}<br>
+                            <strong>Company:</strong> {{ job.company.name }}<br>
+                            <strong>Candidate:</strong> {{ candidate.username }}
+                            {% if candidate.profile %}
+                                ({{ candidate.profile.name }})
+                            {% endif %}
+                        {% else %}
+                            <strong>Job:</strong> {{ application.job.title }}<br>
+                            <strong>Candidate:</strong> {{ application.applicant.username }}
+                            {% if application.applicant.profile %}
+                                ({{ application.applicant.profile.name }})
+                            {% endif %}
                         {% endif %}
                     </div>
                     
@@ -34,9 +43,15 @@
                         </div>
                         
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'jobs:kanban_board' application.job.id %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left me-1"></i>Cancel
-                            </a>
+                            {% if is_direct_message %}
+                                <a href="{% url 'jobs:candidate_recommendations' job.id %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i>Cancel
+                                </a>
+                            {% else %}
+                                <a href="{% url 'jobs:kanban_board' application.job.id %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i>Cancel
+                                </a>
+                            {% endif %}
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-paper-plane me-1"></i>Send Message
                             </button>
@@ -48,4 +63,3 @@
     </div>
 </div>
 {% endblock content %}
-
