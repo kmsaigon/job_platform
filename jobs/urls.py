@@ -19,6 +19,7 @@ urlpatterns = [
     path('application/<int:application_id>/withdraw/', views.withdraw_application, name='withdraw_application'),
     path('map/', views.job_map, name='job_map'),
     path('api/filter_by_distance/', views.filter_by_distance, name='filter_by_distance'),
+    path('recruiter/job/<int:job_id>/recommendations/', views.candidate_recommendations, name='candidate_recommendations'),
     
     # Kanban and messaging features
     path('recruiter/job/<int:job_id>/kanban/', views.kanban_board, name='kanban_board'),
@@ -36,5 +37,3 @@ urlpatterns = [
     path('recruiter/candidates/saved/<int:search_id>/delete/', views.delete_saved_search, name='delete_saved_search'),
     path('recruiter/candidates/saved/<int:search_id>/toggle-notifications/', views.toggle_search_notifications, name='toggle_search_notifications'),
 ]
-
-
