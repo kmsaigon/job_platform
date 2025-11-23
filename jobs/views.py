@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
@@ -820,6 +821,53 @@ def update_application_status(request, application_id):
 @user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
 def send_message(request, application_id):
     """Send a message to a candidate"""
+    # Handle direct candidate messaging (from recommendations)
+    candidate_id = request.GET.get('candidate_id')
+    job_id = request.GET.get('job_id')
+    
+    if candidate_id and job_id:
+        # This is a direct message from recommendations (no application exists yet)
+        candidate = get_object_or_404(get_user_model(), pk=candidate_id)
+        job = get_object_or_404(Job, pk=job_id)
+        
+        # Verify the recruiter owns the job
+        if job.posted_by != request.user and not is_admin(request.user):
+            return HttpResponseForbidden("You don't have permission to send messages for this job.")
+        
+        if request.method == 'POST':
+            form = MessageForm(request.POST)
+            if form.is_valid():
+                # Create a temporary application record for messaging
+                application, created = Application.objects.get_or_create(
+                    job=job,
+                    applicant=candidate,
+                    defaults={
+                        'application_note': 'Contacted via candidate recommendations',
+                        'status': Application.Status.REVIEW
+                    }
+                )
+                
+                message = form.save(commit=False)
+                message.application = application
+                message.sender = request.user
+                message.receiver = candidate
+                message.save()
+                messages.success(request, 'Message sent successfully!')
+                return redirect('jobs:candidate_recommendations', job_id=job.id)
+        else:
+            # Pre-fill subject with job title
+            initial_subject = f"Opportunity: {job.title} at {job.company.name}"
+            form = MessageForm(initial={'subject': initial_subject})
+        
+        context = {
+            'job': job,
+            'candidate': candidate,
+            'form': form,
+            'is_direct_message': True
+        }
+        return render(request, 'jobs/send_message.html', context)
+    
+    # Original application-based messaging
     application = get_object_or_404(Application, pk=application_id)
     
     # Verify the recruiter owns the job
@@ -843,7 +891,8 @@ def send_message(request, application_id):
     
     context = {
         'application': application,
-        'form': form
+        'form': form,
+        'is_direct_message': False
     }
     return render(request, 'jobs/send_message.html', context)
 
@@ -1115,3 +1164,93 @@ def toggle_search_notifications(request, search_id):
         messages.success(request, f'Notifications {status} for "{saved_search.name}".')
     
     return redirect('jobs:saved_searches')
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def candidate_recommendations(request, job_id):
+    """Show candidate recommendations for a specific job posting"""
+    job = get_object_or_404(Job, pk=job_id)
+    
+    # Verify the recruiter owns this job
+    if job.posted_by != request.user and not is_admin(request.user):
+        return HttpResponseForbidden("You don't have permission to view recommendations for this job.")
+    
+    # Get job skills
+    job_skills = []
+    if job.required_skills:
+        for line in job.required_skills.replace(',', '\n').split('\n'):
+            for skill in line.split(','):
+                skill = skill.strip().lower()
+                if skill:
+                    job_skills.append(skill)
+    
+    # Get all public profiles
+    candidates = Profile.objects.filter(is_public=True).select_related('user')
+    
+    # Calculate skill match for each candidate
+    candidate_recommendations = []
+    
+    for candidate in candidates:
+        # Skip candidates who have already applied to this job
+        if Application.objects.filter(job=job, applicant=candidate.user).exists():
+            continue
+            
+        candidate_skills = []
+        if candidate.skills:
+            for line in candidate.skills.replace(',', '\n').split('\n'):
+                for skill in line.split(','):
+                    skill = skill.strip().lower()
+                    if skill:
+                        candidate_skills.append(skill)
+        
+        # Calculate skill match
+        matching_skills = []
+        if job_skills and candidate_skills:
+            matching_skills = [skill for skill in job_skills if skill in candidate_skills]
+        
+        match_count = len(matching_skills)
+        total_required = len(job_skills) if job_skills else 1
+        match_score = (match_count / total_required) * 100 if total_required > 0 else 0
+        
+        # Calculate distance if job has location and candidate has preferred location
+        distance = None
+        if job.office_location and job.office_location.latitude and job.office_location.longitude:
+            if candidate.preferred_location_lat and candidate.preferred_location_lng:
+                try:
+                    distance = haversine(
+                        float(job.office_location.latitude),
+                        float(job.office_location.longitude),
+                        float(candidate.preferred_location_lat),
+                        float(candidate.preferred_location_lng)
+                    )
+                except (ValueError, TypeError):
+                    pass
+        
+        # Only include candidates with at least some match or all if no skills specified
+        if job_skills and match_count == 0:
+            continue
+            
+        candidate_data = {
+            'profile': candidate,
+            'match_score': round(match_score, 1),
+            'match_count': match_count,
+            'total_required': total_required,
+            'matching_skills': matching_skills,
+            'distance': round(distance, 1) if distance else None,
+            'all_skills': candidate_skills,
+            'has_applied': False  # We already filtered these out
+        }
+        candidate_recommendations.append(candidate_data)
+    
+    # Sort by match score (descending) and distance (ascending)
+    candidate_recommendations.sort(
+        key=lambda x: (-x['match_score'], x['distance'] if x['distance'] is not None else float('inf'))
+    )
+    
+    context = {
+        'job': job,
+        'candidate_recommendations': candidate_recommendations,
+        'job_skills': job_skills,
+        'total_candidates': len(candidate_recommendations)
+    }
+    return render(request, 'jobs/candidate_recommendations.html', context)

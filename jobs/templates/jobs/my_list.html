@@ -36,6 +36,35 @@
             </td>
             <td>{{ job.updated_at|date:"M d, Y" }}</td>
             <td class="text-end">
+              <!-- Add this new button for recommendations -->
+              {% if job.applications.count > 0 or job.status == 'published' %}
+                <a href="{% url 'jobs:candidate_recommendations' job.pk %}" class="btn btn-sm btn-success mb-1">
+                  <i class="fas fa-user-check me-1"></i>Recommendations
+                </a>
+              {% endif %}
+
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'jobs:edit' job.pk %}">
+                <i class="fas fa-edit me-1"></i>Edit
+              </a>
+              {% if job.status == 'published' %}
+                <form method="post" action="{% url 'jobs:unpublish' job.pk %}" style="display:inline">{% csrf_token %}
+                  <button class="btn btn-sm btn-outline-warning" type="submit">
+                    <i class="fas fa-eye-slash me-1"></i>Unpublish
+                  </button>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'jobs:publish' job.pk %}" style="display:inline">{% csrf_token %}
+                  <button class="btn btn-sm btn-outline-success" type="submit">
+                    <i class="fas fa-check me-1"></i>Publish
+                  </button>
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'jobs:close' job.pk %}" style="display:inline">{% csrf_token %}
+                <button class="btn btn-sm btn-outline-danger" type="submit">
+                  <i class="fas fa-times me-1"></i>Close
+                </button>
+              </form>
+            </td>
               <a class="btn btn-sm btn-outline-secondary" href="{% url 'jobs:edit' job.pk %}">
                 <i class="fas fa-edit me-1"></i>Edit
               </a>
@@ -67,5 +96,3 @@
   </div>
 </div>
 {% endblock content %}
-
-
