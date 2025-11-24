@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.conf import settings
 from .models import Profile
 from .forms import CustomProfileCreationForm
 
@@ -27,7 +28,8 @@ def create(request):
     context = {
         'template_data': {
             'form': form,
-            'title': 'Create Profile'
+            'title': 'Create Profile',
+            'GOOGLE_MAPS_API_KEY': settings.GOOGLE_MAPS_API_KEY,
         }
     }
     return render(request, 'profiles/create.html', context)
@@ -65,7 +67,8 @@ def edit(request):
         'template_data': {
             'form': form,
             'profile': profile,
-            'title': 'Edit Profile'
+            'title': 'Edit Profile',
+            'GOOGLE_MAPS_API_KEY': settings.GOOGLE_MAPS_API_KEY,
         }
     }
     return render(request, 'profiles/edit.html', context)

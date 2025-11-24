@@ -7,7 +7,7 @@
         <div class="card-body">
           <h2>{{ template_data.title }}</h2>
           <hr />
-          <form method="post">
+          <form method="post" id="profileForm">
             {% csrf_token %}
             
             <!-- Basic Information -->
@@ -26,6 +26,43 @@
                 {{ template_data.form.headline }}
                 {% if template_data.form.headline.errors %}
                   <div class="text-danger">{{ template_data.form.headline.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Location Information -->
+            <div class="mb-4">
+              <h5 class="text-primary">Location Preferences</h5>
+              <p class="text-muted">This helps recruiters find you for relevant opportunities</p>
+              
+              <div class="mb-3">
+                <label for="location_input" class="form-label">Current Location *</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="location_input" 
+                         placeholder="e.g., Atlanta, GA or New York, NY"
+                         value="{{ template_data.form.preferred_location_address.value|default:'' }}">
+                  <button class="btn btn-outline-secondary" type="button" id="geocodeBtn">
+                    <i class="fas fa-search"></i> Find Location
+                  </button>
+                </div>
+                <div class="form-text">Where are you currently based? Enter your city and state, then click "Find Location"</div>
+                <div id="locationStatus" class="mt-2"></div>
+                {% if template_data.form.preferred_location_address.errors %}
+                  <div class="text-danger">{{ template_data.form.preferred_location_address.errors }}</div>
+                {% endif %}
+                
+                <!-- Hidden fields -->
+                <input type="hidden" name="preferred_location_address" id="id_preferred_location_address" value="{{ template_data.form.preferred_location_address.value|default:'' }}">
+                <input type="hidden" name="preferred_location_lat" id="id_preferred_location_lat" value="{{ template_data.form.preferred_location_lat.value|default:'' }}">
+                <input type="hidden" name="preferred_location_lng" id="id_preferred_location_lng" value="{{ template_data.form.preferred_location_lng.value|default:'' }}">
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.commute_radius.id_for_label }}" class="form-label">Preferred Commute Distance</label>
+                {{ template_data.form.commute_radius }}
+                <div class="form-text">Maximum distance you're willing to commute for on-site roles</div>
+                {% if template_data.form.commute_radius.errors %}
+                  <div class="text-danger">{{ template_data.form.commute_radius.errors }}</div>
                 {% endif %}
               </div>
             </div>
@@ -155,4 +192,103 @@
     </div>
   </div>
 </div>
+
+<script>
+// Free geocoding using Nominatim (OpenStreetMap)
+document.getElementById('geocodeBtn').addEventListener('click', async function() {
+    const locationInput = document.getElementById('location_input');
+    const address = locationInput.value.trim();
+    const statusDiv = document.getElementById('locationStatus');
+    const btn = this;
+    
+    if (!address) {
+        statusDiv.innerHTML = '<div class="alert alert-warning">Please enter a location</div>';
+        return;
+    }
+    
+    // Show loading
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+    statusDiv.innerHTML = '<div class="alert alert-info">Looking up location...</div>';
+    
+    try {
+        // Call Nominatim API (free, no API key needed)
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&addressdetails=1&limit=1`,
+            {
+                headers: {
+                    'User-Agent': 'JobPlatform/1.0'
+                }
+            }
+        );
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            const place = data[0];
+            const lat = parseFloat(place.lat);
+            const lng = parseFloat(place.lon);
+            const displayName = place.display_name;
+            
+            // Fill in the hidden fields
+            document.getElementById('id_preferred_location_lat').value = lat;
+            document.getElementById('id_preferred_location_lng').value = lng;
+            document.getElementById('id_preferred_location_address').value = displayName;
+            
+            // Update the visible input
+            locationInput.value = displayName;
+            
+            // Show success
+            statusDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> Location found: ${displayName}
+                </div>
+            `;
+        } else {
+            statusDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Location not found. Try: "City, State" format (e.g., "Atlanta, GA")
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        statusDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Error finding location. Please try again.
+            </div>
+        `;
+    } finally {
+        // Reset button
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search"></i> Find Location';
+    }
+});
+
+// Allow Enter key to trigger geocoding
+document.getElementById('location_input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('geocodeBtn').click();
+    }
+});
+
+// Form validation
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+    const lat = document.getElementById('id_preferred_location_lat').value;
+    const lng = document.getElementById('id_preferred_location_lng').value;
+    const address = document.getElementById('location_input').value;
+    
+    if (address && (!lat || !lng)) {
+        e.preventDefault();
+        document.getElementById('locationStatus').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Please click "Find Location" button to verify your location before submitting.
+            </div>
+        `;
+        document.getElementById('location_input').focus();
+        return false;
+    }
+});
+</script>
 {% endblock content %}
