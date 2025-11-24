@@ -1,6 +1,7 @@
 from django import forms
 from django.forms.utils import ErrorList
 from django.utils.safestring import mark_safe
+from decimal import Decimal, ROUND_HALF_UP
 
 from .models import Profile
 
@@ -14,12 +15,8 @@ class CustomProfileCreationForm(forms.ModelForm):
     # Add location fields as CharField for the address input
     preferred_location_address = forms.CharField(
         max_length=255,
-        required=True,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Enter your city, state (e.g., Atlanta, GA)',
-            'id': 'location_input'
-        }),
+        required=False,  # Changed to False - location is optional
+        widget=forms.HiddenInput(),  # Changed to HiddenInput since we use custom UI
         label='Current Location',
         help_text='Where are you currently based? This helps recruiters find local candidates'
     )
@@ -63,17 +60,52 @@ class CustomProfileCreationForm(forms.ModelForm):
                 existing = field.widget.attrs.get('class', '')
                 field.widget.attrs['class'] = (existing + ' form-control').strip()
     
+    def clean_preferred_location_lat(self):
+        """Round latitude to 6 decimal places before validation"""
+        lat = self.cleaned_data.get('preferred_location_lat')
+        if lat is not None:
+            try:
+                # Convert to Decimal and round to 6 decimal places
+                lat_decimal = Decimal(str(lat))
+                # Round to 6 decimal places
+                lat_rounded = lat_decimal.quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
+                return lat_rounded
+            except (ValueError, TypeError):
+                return None
+        return None
+    
+    def clean_preferred_location_lng(self):
+        """Round longitude to 6 decimal places before validation"""
+        lng = self.cleaned_data.get('preferred_location_lng')
+        if lng is not None:
+            try:
+                # Convert to Decimal and round to 6 decimal places
+                lng_decimal = Decimal(str(lng))
+                # Round to 6 decimal places
+                lng_rounded = lng_decimal.quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
+                return lng_rounded
+            except (ValueError, TypeError):
+                return None
+        return None
+    
     def clean(self):
         cleaned_data = super().clean()
         lat = cleaned_data.get('preferred_location_lat')
         lng = cleaned_data.get('preferred_location_lng')
-        address = cleaned_data.get('preferred_location_address')
+        address = cleaned_data.get('preferred_location_address', '').strip()
         
-        # If address is provided but no coordinates, raise error
+        # If address is provided but no coordinates, clear the address
+        # This allows saving without location, but if they provide address, they need coordinates
         if address and (not lat or not lng):
-            raise forms.ValidationError(
-                'Please select a valid location from the dropdown suggestions. '
-                'Start typing your city and select from the list that appears.'
-            )
+            # Clear the address if coordinates are missing
+            cleaned_data['preferred_location_address'] = ''
+            cleaned_data['preferred_location_lat'] = None
+            cleaned_data['preferred_location_lng'] = None
+            # Don't raise error - just clear invalid address
+            # This allows users to save profile without location
+        elif not address:
+            # If no address, also clear coordinates
+            cleaned_data['preferred_location_lat'] = None
+            cleaned_data['preferred_location_lng'] = None
         
         return cleaned_data

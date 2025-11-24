@@ -57,9 +57,12 @@ def edit(request):
     if request.method == 'POST':
         form = CustomProfileCreationForm(request.POST, instance=profile)
         if form.is_valid():
-            form.save()
+            profile = form.save()
             messages.success(request, 'Profile updated successfully!')
             return redirect('profiles:profiles.detail')
+        else:
+            # Form has errors - show them
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = CustomProfileCreationForm(instance=profile)
     

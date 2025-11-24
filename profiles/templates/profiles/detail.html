@@ -12,6 +12,14 @@
       {% if template_data.profile.headline %}
         <p><strong>Headline:</strong> {{ template_data.profile.headline }}</p>
       {% endif %}
+      {% if template_data.profile.preferred_location_address and template_data.profile.preferred_location_address.strip %}
+        <p><strong>Location:</strong> {{ template_data.profile.preferred_location_address }}</p>
+        {% if template_data.profile.commute_radius %}
+          <p><strong>Preferred Commute Distance:</strong> {{ template_data.profile.commute_radius }} miles</p>
+        {% endif %}
+      {% else %}
+        <p class="text-muted"><strong>Location:</strong> Not set</p>
+      {% endif %}
       {% if template_data.profile.skills %}
         <p><strong>Skills:</strong><br/>{{ template_data.profile.skills|linebreaksbr }}</p>
       {% endif %}
