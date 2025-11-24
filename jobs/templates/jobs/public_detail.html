@@ -45,14 +45,14 @@
     </div>
 
     <!-- Google Maps Script -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ template_data.GOOGLE_MAPS_API_KEY }}&callback=initMap"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&callback=initMap"></script>
 
     <script>
     function initMap() {
         var location = {
           lat: parseFloat("{{ job.office_location.latitude }}"),
           lng: parseFloat("{{ job.office_location.longitude }}")
-          };
+        };
         
         var map = new google.maps.Map(document.getElementById('google-map'), {
             zoom: 15,
@@ -74,8 +74,7 @@
             position: location,
             map: map,
             title: '{{ job.company.name }}',
-            animation: google.maps.Animation.DROP,
-          
+            animation: google.maps.Animation.DROP
         });
         
         // Info window
@@ -91,10 +90,11 @@
                 </div>
             `
         });
-      }
-  marker.addListener('click', function() {
-      infoWindow.open(map, marker);
-  });
+        
+        // Add click listener to marker
+        marker.addListener('click', function() {
+            infoWindow.open(map, marker);
+        });
         
         // Open info window by default
         infoWindow.open(map, marker);
@@ -110,6 +110,7 @@
             center: location,
             radius: 300 // 300 meters
         });
+    }
     </script>
     {% endif %}
   
