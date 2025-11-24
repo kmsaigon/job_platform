@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Google Maps API Script -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ template_data.GOOGLE_MAPS_API_KEY }}&callback=initMap&libraries=geometry"></script>
+<!-- Marker Clustering Library -->
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+
+<div class="container-fluid p-0">
+    <div class="row">
+        <!-- Map Container -->
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Applicants Map
+                    </h3>
+                    <p class="mb-0 mt-2">View applicants clustered by location</p>
+                    <div class="mt-3 mt-md-0 d-flex align-items-center gap-2 flex-wrap">
+                        <form method="get" action="{% url 'jobs:applicants_map' %}" class="d-flex align-items-center gap-2">
+                            <select name="job_id" id="jobFilter" class="form-select form-select-sm bg-light text-dark" style="width: auto;">
+                                <option value="">All Jobs</option>
+                                {% for job in template_data.recruiter_jobs %}
+                                    <option value="{{ job.id }}" {% if template_data.selected_job_id == job.id %}selected{% endif %}>
+                                        {{ job.title }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-filter me-1"></i> Filter
+                            </button>
+                            {% if template_data.selected_job_id %}
+                                <a href="{% url 'jobs:applicants_map' %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-times me-1"></i> Clear
+                                </a>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="map" style="height: 600px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Applicants Modal -->
+<div class="modal fade" id="applicantsModal" tabindex="-1" aria-labelledby="applicantsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="applicantsModalLabel">
+                    <i class="fas fa-users me-2"></i>
+                    Applicants
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="applicantsContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Map data from Django
+var applicantData = JSON.parse('{{ template_data.applicant_data|escapejs }}');
+var apiKey = '{{ template_data.GOOGLE_MAPS_API_KEY }}';
+
+var map;
+let markers = [];
+let markerCluster = null;
+let infoWindow = null;
+
+function initMap() {
+    console.log('initMap function called');
+    try {
+        // Initialize the map centered on the US
+        map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 4,
+            center: { lat: 39.8283, lng: -98.5795 }, // Center of US
+            mapTypeId: google.maps.MapTypeId.ROADMAP,
+            styles: [
+                {
+                    featureType: "administrative.country",
+                    elementType: "geometry.stroke",
+                    stylers: [{ color: "#000000" }, { weight: 1 }]
+                }
+            ]
+        });
+        console.log('Google Maps initialized successfully');
+        
+        // Create info window
+        infoWindow = new google.maps.InfoWindow();
+        
+        // Add markers for applicant locations
+        if (!applicantData || !Array.isArray(applicantData)) {
+            console.error('applicantData is not a valid array:', applicantData);
+            return;
+        }
+        
+        console.log('Processing', applicantData.length, 'location clusters for markers');
+        
+        markers = [];
+        applicantData.forEach(cluster => {
+            const marker = new google.maps.Marker({
+                position: { lat: cluster.latitude, lng: cluster.longitude },
+                map: map,
+                title: `${cluster.applicant_count} applicant(s) at this location`,
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="20" cy="20" r="16" fill="#28a745" stroke="#ffffff" stroke-width="2"/>
+                            <text x="20" y="26" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${cluster.applicant_count}</text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 20)
+                }
+            });
+            
+            // Store cluster data with marker
+            marker.clusterData = cluster;
+            
+            // Add click listener
+            marker.addListener('click', function() {
+                showApplicantsAtLocation(cluster);
+            });
+            
+            markers.push(marker);
+        });
+        
+        // Create marker clusterer
+        if (typeof markerClusterer !== 'undefined' && markerClusterer.MarkerClusterer) {
+            try {
+                markerCluster = new markerClusterer.MarkerClusterer({
+                    map: map,
+                    markers: markers
+                });
+            } catch (error) {
+                console.warn('Error creating MarkerClusterer:', error);
+                // Fallback: show all markers
+                markers.forEach(marker => marker.setMap(map));
+            }
+        } else {
+            // Fallback if markerClusterer is not available
+            console.warn('MarkerClusterer not available, showing all markers');
+            markers.forEach(marker => marker.setMap(map));
+        }
+        
+        // Auto-fit map to show all markers if we have data
+        if (markers.length > 0) {
+            const bounds = new google.maps.LatLngBounds();
+            markers.forEach(marker => {
+                bounds.extend(marker.getPosition());
+            });
+            map.fitBounds(bounds);
+        }
+        
+    } catch (error) {
+        console.error('Error initializing Google Maps:', error);
+        document.getElementById('map').innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100 bg-danger text-white">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <h5>Google Maps Error</h5>
+                    <p>Error: ${error.message}</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function showApplicantsAtLocation(cluster) {
+    // Build info window content with stats
+    let statusText = [];
+    for (const [status, count] of Object.entries(cluster.status_breakdown)) {
+        if (count > 0) {
+            const statusDisplay = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+            statusText.push(`${count} ${statusDisplay}`);
+        }
+    }
+    
+    const topSkillsText = cluster.top_skills.length > 0 
+        ? cluster.top_skills.slice(0, 5).join(', ')
+        : 'No skills listed';
+    
+    const infoContent = `
+        <div style="min-width: 250px;">
+            <h6><i class="fas fa-map-marker-alt me-2"></i>${cluster.address || 'Location'}</h6>
+            <p class="mb-2"><strong>Total Applicants:</strong> ${cluster.applicant_count}</p>
+            ${statusText.length > 0 ? `<p class="mb-2"><strong>Status:</strong> ${statusText.join(', ')}</p>` : ''}
+            <p class="mb-2"><strong>Top Skills:</strong> ${topSkillsText}</p>
+            <button class="btn btn-primary btn-sm mt-2" onclick="showApplicantsModal(${JSON.stringify(cluster).replace(/"/g, '&quot;')})">
+                <i class="fas fa-list me-1"></i> View Details
+            </button>
+        </div>
+    `;
+    
+    // Show info window
+    infoWindow.setContent(infoContent);
+    infoWindow.setPosition({ lat: cluster.latitude, lng: cluster.longitude });
+    infoWindow.open(map);
+}
+
+function showApplicantsModal(cluster) {
+    // Close info window
+    infoWindow.close();
+    
+    // Update modal title
+    document.getElementById('applicantsModalLabel').innerHTML = 
+        `<i class="fas fa-users me-2"></i>Applicants at ${cluster.address || 'Location'}`;
+    
+    // Build content
+    let content = '';
+    
+    if (cluster.applicants.length === 0) {
+        content = `
+            <div class="text-center py-4">
+                <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No applicants found</h5>
+            </div>
+        `;
+    } else {
+        content = `
+            <div class="mb-3">
+                <h6><i class="fas fa-map-marker-alt me-2"></i>Location</h6>
+                <p class="text-muted mb-0">${cluster.address || 'Location not specified'}</p>
+            </div>
+            <hr>
+            <h6><i class="fas fa-users me-2"></i>Applicants (${cluster.applicants.length})</h6>
+            <div class="row">
+        `;
+        
+        cluster.applicants.forEach(applicant => {
+            const skillsPreview = applicant.skills 
+                ? applicant.skills.substring(0, 100) + (applicant.skills.length > 100 ? '...' : '')
+                : 'No skills listed';
+            
+            const applicationsList = applicant.applications.length > 0
+                ? applicant.applications.map(app => 
+                    `<a href="${app.kanban_url}" class="badge bg-primary me-1" target="_blank">${app.job_title} (${app.status_display})</a>`
+                ).join(' ')
+                : '<span class="text-muted">No applications</span>';
+            
+            content += `
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="card-title">${applicant.name}</h6>
+                            <p class="card-text small text-muted mb-2">
+                                <i class="fas fa-user me-1"></i>@${applicant.username}
+                            </p>
+                            <p class="card-text small mb-2">
+                                <strong>Skills:</strong> ${skillsPreview}
+                            </p>
+                            <p class="card-text small mb-2">
+                                <strong>Applications:</strong><br/>
+                                ${applicationsList}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        content += '</div>';
+    }
+    
+    document.getElementById('applicantsContent').innerHTML = content;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('applicantsModal'));
+    modal.show();
+}
+
+// Initialize map when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if Google Maps API key is available
+    console.log('API Key:', apiKey);
+    
+    if (!apiKey || apiKey.length < 10) {
+        document.getElementById('map').innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100 bg-light">
+                <div class="text-center">
+                    <i class="fas fa-map fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Google Maps API Key Required</h5>
+                    <p class="text-muted">Please configure the GOOGLE_MAPS_API_KEY environment variable</p>
+                </div>
+            </div>
+        `;
+    } else {
+        // Show loading message
+        document.getElementById('map').innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100 bg-light">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin fa-3x text-primary mb-3"></i>
+                    <h5 class="text-primary">Loading Google Maps...</h5>
+                </div>
+            </div>
+        `;
+        
+        // Set a timeout to show error if Google Maps doesn't load
+        setTimeout(function() {
+            if (typeof google === 'undefined' || !google.maps) {
+                document.getElementById('map').innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center h-100 bg-warning">
+                        <div class="text-center">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5 class="text-warning">Google Maps Failed to Load</h5>
+                            <p class="text-muted">Please check your API key restrictions in Google Cloud Console</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }, 5000); // 5 second timeout
+    }
+});
+</script>
+{% endblock content %}
+

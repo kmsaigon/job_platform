@@ -11,6 +11,8 @@ from django.db.models import Q, Count
 from django.core.paginator import Paginator
 from django.conf import settings
 import json
+from collections import defaultdict, Counter
+from decimal import Decimal
 from .forms import JobForm, JobSearchForm, ApplicationForm, CandidateSearchForm, MessageForm, ApplicationEmailForm, SaveSearchForm, JobModerationForm, CSVExportForm
 from .models import Job, JobStatusHistory, Application, Message, ApplicationEmail, SavedCandidateSearch
 from profiles.models import Profile
@@ -1559,3 +1561,138 @@ def admin_export_csv(request):
         'companies': Company.objects.all().order_by('name'),
     }
     return render(request, 'jobs/admin_export.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: is_admin(u) or is_recruiter(u))
+def applicants_map(request):
+    """
+    Display an interactive map showing applicants clustered by their preferred location.
+    Only shows applicants who have applied to jobs posted by the recruiter.
+    """
+    # Get all jobs posted by the recruiter (or all jobs if admin)
+    if is_admin(request.user):
+        recruiter_jobs = Job.objects.all()
+    else:
+        recruiter_jobs = Job.objects.filter(posted_by=request.user)
+    
+    # Support optional job filtering
+    job_id = request.GET.get('job_id')
+    if job_id:
+        try:
+            job = recruiter_jobs.get(pk=job_id)
+            recruiter_jobs = Job.objects.filter(pk=job_id)
+        except Job.DoesNotExist:
+            messages.error(request, 'Invalid job selected.')
+            recruiter_jobs = Job.objects.none()
+    
+    # Get all applications for recruiter's jobs with location data
+    applications = Application.objects.filter(
+        job__in=recruiter_jobs,
+        applicant__profile__preferred_location_lat__isnull=False,
+        applicant__profile__preferred_location_lng__isnull=False
+    ).select_related('applicant', 'applicant__profile', 'job', 'job__company')
+    
+    # Group applicants by location (round coordinates to ~0.01 degrees for clustering)
+    # First, group applications by applicant
+    applicant_apps = defaultdict(list)
+    for app in applications:
+        applicant_apps[app.applicant.id].append(app)
+    
+    # Then group by location
+    location_clusters = defaultdict(lambda: {
+        'applicants': [],
+        'skills_list': [],
+        'status_counts': Counter()
+    })
+    
+    for applicant_id, apps_list in applicant_apps.items():
+        # Get applicant profile from first application
+        first_app = apps_list[0]
+        profile = first_app.applicant.profile
+        if not profile.preferred_location_lat or not profile.preferred_location_lng:
+            continue
+        
+        # Round coordinates to create clusters (approximately 0.6 miles at equator)
+        lat = float(profile.preferred_location_lat)
+        lng = float(profile.preferred_location_lng)
+        cluster_key = (round(lat, 2), round(lng, 2))
+        
+        # Get or create cluster
+        cluster = location_clusters[cluster_key]
+        
+        # Build applications list for this applicant
+        applicant_applications = []
+        for app in apps_list:
+            applicant_applications.append({
+                'job_id': app.job.id,
+                'job_title': app.job.title,
+                'status': app.status,
+                'status_display': app.get_status_display(),
+                'kanban_url': reverse('jobs:kanban_board', kwargs={'job_id': app.job.id})
+            })
+            # Count statuses
+            cluster['status_counts'][app.status] += 1
+        
+        # Add applicant to cluster
+        # Note: Profile URLs are user-specific, so we can't link to other users' profiles directly
+        # The kanban board link provides access to applicant details
+        cluster['applicants'].append({
+            'id': applicant_id,
+            'name': profile.name or first_app.applicant.username,
+            'username': first_app.applicant.username,
+            'skills': profile.skills or '',
+            'applications': applicant_applications
+        })
+        
+        # Collect skills
+        if profile.skills:
+            # Parse skills (split by comma or newline)
+            skills = [s.strip().lower() for s in profile.skills.replace('\n', ',').split(',') if s.strip()]
+            cluster['skills_list'].extend(skills)
+    
+    # Build final data structure
+    applicant_data = []
+    for (lat, lng), cluster in location_clusters.items():
+        # Get address from first applicant in cluster
+        address = ''
+        if cluster['applicants']:
+            # Get the first applicant's profile to get address
+            first_applicant_id = cluster['applicants'][0]['id']
+            first_app = applications.filter(applicant_id=first_applicant_id).first()
+            if first_app and hasattr(first_app.applicant, 'profile'):
+                address = first_app.applicant.profile.preferred_location_address or ''
+        
+        # Get top skills (most common)
+        skills_counter = Counter(cluster['skills_list'])
+        top_skills = [skill for skill, count in skills_counter.most_common(5)]
+        
+        # Build status breakdown
+        status_breakdown = {}
+        for status_key, status_display in Application.Status.choices:
+            status_breakdown[status_key] = cluster['status_counts'].get(status_key, 0)
+        
+        applicant_data.append({
+            'latitude': lat,
+            'longitude': lng,
+            'address': address,
+            'applicant_count': len(cluster['applicants']),
+            'top_skills': top_skills,
+            'status_breakdown': status_breakdown,
+            'applicants': cluster['applicants']
+        })
+    
+    # Get list of recruiter's jobs for filter dropdown
+    recruiter_jobs_list = recruiter_jobs.order_by('-created_at').values('id', 'title')
+    
+    context = {
+        'template_data': {
+            'title': 'Applicants Map',
+            'applicant_data': json.dumps(applicant_data),
+            'GOOGLE_MAPS_API_KEY': settings.GOOGLE_MAPS_API_KEY,
+            'recruiter_jobs': list(recruiter_jobs_list),
+            'selected_job_id': int(job_id) if job_id else None,
+        }
+    }
+    
+    return render(request, 'jobs/applicants_map.html', context)

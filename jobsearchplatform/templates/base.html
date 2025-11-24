@@ -66,6 +66,8 @@
                <span class="nav-separator"></span>
                <a class="nav-link" href="{% url 'jobs:candidate_search' %}">Find Candidates</a>
                <span class="nav-separator"></span>
+               <a class="nav-link" href="{% url 'jobs:applicants_map' %}">Applicants Map</a>
+               <span class="nav-separator"></span>
               {% elif user|has_group:'job_seeker' %}
                 <a class="nav-link" href="{% url 'jobs:recommendations' %}">Recommendations</a>
                 <span class="nav-separator"></span>

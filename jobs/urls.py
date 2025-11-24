@@ -13,6 +13,7 @@ urlpatterns = [
     path('recruiter/<int:pk>/unpublish', views.job_unpublish, name='unpublish'),
     path('recruiter/<int:pk>/close', views.job_close, name='close'),
     path('recruiter/candidates/', views.CandidateSearchView.as_view(), name='candidate_search'),
+    path('recruiter/applicants-map/', views.applicants_map, name='applicants_map'),
     path('<int:pk>/apply/', views.apply_to_job, name='apply'),
     path('my-applications/', views.my_applications, name='my_applications'),
     path('recommendations/', views.recommendations, name='recommendations'),
